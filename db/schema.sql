@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_received_at ON messages (received_at DES
 CREATE INDEX IF NOT EXISTS idx_messages_pil_code ON messages (pil_code);
 CREATE INDEX IF NOT EXISTS idx_messages_office ON messages (office);
 CREATE INDEX IF NOT EXISTS idx_messages_source ON messages (source);
-CREATE INDEX IF NOT EXISTS idx_messages_awips_id ON messages (awips_id) WHERE is_deleted = FALSE;
+CREATE INDEX IF NOT EXISTS idx_messages_awips_id ON messages (awips_id);
 CREATE INDEX IF NOT EXISTS idx_messages_not_deleted ON messages (received_at DESC) WHERE is_deleted = FALSE;
 
 CREATE TABLE IF NOT EXISTS filters (

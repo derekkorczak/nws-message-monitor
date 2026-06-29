@@ -22,22 +22,21 @@ class MessageProcessor:
         pool = get_pool()
 
         if msg.awips_id:
-            existing = await pool.fetchval(
-                "SELECT id FROM messages WHERE awips_id = $1 "
-                "AND is_deleted = FALSE "
+            existing = await pool.fetchrow(
+                "SELECT id, is_deleted FROM messages WHERE awips_id = $1 "
                 "AND COALESCE(expires_at, received_at + INTERVAL '1 hour') > NOW()",
                 msg.awips_id,
             )
             if existing:
-                if msg.source == "nwws":
+                if not existing["is_deleted"] and msg.source == "nwws":
                     await pool.execute(
                         "UPDATE messages SET source = 'nwws', product_text = $1, "
                         "wmo_heading = $2 WHERE id = $3",
-                        msg.product_text, msg.wmo_heading, existing,
+                        msg.product_text, msg.wmo_heading, existing["id"],
                     )
-                    logger.debug("Upgraded dedup message %s to nwws", existing)
+                    logger.debug("Upgraded dedup message %s to nwws", existing["id"])
                 else:
-                    logger.debug("Duplicate message skipped: %s", msg.awips_id)
+                    logger.debug("Duplicate message skipped: %s (deleted=%s)", msg.awips_id, existing["is_deleted"])
                 return False
 
         row = await pool.fetchrow(
