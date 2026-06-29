@@ -37,6 +37,7 @@ class NWWSClient(slixmpp.ClientXMPP):
         self._configure_keepalive()
         self.add_event_handler("session_start", self.on_session_start)
         self.add_event_handler("groupchat_message", self.on_groupchat_message)
+        self.add_event_handler("groupchat_presence", self.on_groupchat_presence)
         self.add_event_handler("disconnected", self.on_disconnected)
         self.add_event_handler("connection_failed", self.on_connection_failed)
         self.add_event_handler("failed_auth", self.on_failed_auth)
@@ -82,16 +83,24 @@ class NWWSClient(slixmpp.ClientXMPP):
             stanza = xep_0045.make_join_stanza(room, self.boundjid.user, maxstanzas=0)
             stanza.send()
             logger.info("NWWS-OI MUC join presence sent")
+            logger.info(f"Registered rooms: {list(xep_0045.rooms[None].keys())}")
+            logger.info(f"Our MUC nick: {xep_0045.our_nicks[None].get(room, 'not set')}")
         except Exception:
             logger.exception("Error joining NWWS-OI MUC room")
 
     async def on_groupchat_message(self, msg):
+        logger.info(f"NWWS-OI received message from {msg['from']}")
+        
         if msg["from"].resource == self.boundjid.user:
+            logger.info("Ignoring message from self")
             return
 
         body = msg["body"]
         if not body:
+            logger.info("Message has no body, ignoring")
             return
+
+        logger.info(f"Processing NWWS-OI message (length: {len(body)})")
 
         try:
             parsed = self._parse_message(body)
@@ -99,8 +108,13 @@ class NWWSClient(slixmpp.ClientXMPP):
                 stored = await message_processor.process(parsed)
                 if stored:
                     self._messages_count += 1
+                    logger.info(f"Stored NWWS-OI message: {parsed.wmo_heading}")
         except Exception:
             logger.exception("Error processing NWWS message")
+
+    async def on_groupchat_presence(self, prs):
+        mucnick = prs.get('mucnick', 'unknown')
+        logger.info(f"NWWS-OI presence: {prs['from']} (nick: {mucnick})")
 
     def _parse_message(self, body: str) -> MessageCreate | None:
         lines = body.strip().splitlines()
@@ -180,6 +194,7 @@ class NWWSClient(slixmpp.ClientXMPP):
     def connect(self):
         if hasattr(self, 'init_plugins'):
             self.init_plugins()
+        logger.info(f"Connecting to NWWS-OI at {NWWS_HOST}:{NWWS_PORT} (use_ssl={self.use_ssl}, starttls={self.disable_starttls})")
         return XMLStream.connect(self, NWWS_HOST, NWWS_PORT)
 
     @property
