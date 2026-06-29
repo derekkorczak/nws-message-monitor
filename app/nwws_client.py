@@ -70,7 +70,10 @@ class NWWSClient(slixmpp.ClientXMPP):
         self._connected = True
         self._reconnect_delay = 5
         self._connect_event.set()
-        self.plugin["xep_0045"].join_muc(NWWS_MUC, self.boundjid.user)
+        try:
+            await self.plugin["xep_0045"].join_muc(NWWS_MUC, self.boundjid.user)
+        except Exception as e:
+            logger.warning("MUC join error (may still be joined): %s", e)
 
     async def on_groupchat_message(self, msg):
         if msg["mucnick"] == self.boundjid.user:
