@@ -110,31 +110,67 @@ class NWWSClient(slixmpp.ClientXMPP):
     async def on_groupchat_presence(self, prs):
         pass  # Presence flood on join; handled by xep_0045 internally
 
+    # NWWS-OI notification formats:
+    # "KBIS issues Severe Weather Statement (SVS) valid 2026-06-29T21:27:00Z"
+    # "KWBC issues CAP valid 2026-06-29T21:24:00Z"
+    # "KLBF issued, valid 2026-06-29T21:28:00Z"
+    _NWWS_WITH_PIL = re.compile(
+        r"^([A-Z]{4})\s+issues?\s+.*?\(([A-Z]{2,6})\)", re.IGNORECASE
+    )
+    _NWWS_BARE_PIL = re.compile(
+        r"^([A-Z]{4})\s+issues?\s+([A-Z]{2,6})\s+valid", re.IGNORECASE
+    )
+    _NWWS_ISSUED = re.compile(r"^([A-Z]{4})\s+issued", re.IGNORECASE)
+    _WMO_PATTERN = re.compile(r"^([A-Z]{4}\d{2})\s+(\w+)\s+(\d+)", re.IGNORECASE)
+    _AWIPS_PATTERN = re.compile(r"^[A-Z]{3,4}$")
+
     def _parse_message(self, body: str) -> MessageCreate | None:
-        lines = body.strip().splitlines()
-        if not lines:
+        body = body.strip()
+        if not body:
             return None
 
-        wmo_heading = None
-        awips_id = None
-        pil_code = None
-        office = None
+        # --- NWWS-OI notification format (single-line summary) ---
+        m = self._NWWS_WITH_PIL.match(body)
+        if m:
+            icao, pil_code = m.group(1).upper(), m.group(2).upper()
+            office = icao[1:] if len(icao) == 4 else icao
+            return MessageCreate(
+                source="nwws", wmo_heading=None, awips_id=None,
+                pil_code=pil_code[:50], office=office[:50], product_text=body,
+            )
 
-        # WMO heading pattern: 6 uppercase letters + 2 digits (e.g., WFUS53)
-        wmo_pattern = re.compile(r"^([A-Z]{4}\d{2})\s+(\w+)\s+(\d+)", re.IGNORECASE)
-        # AWIPS pattern: 3-4 letters
-        awips_pattern = re.compile(r"^[A-Z]{3,4}$")
+        m = self._NWWS_BARE_PIL.match(body)
+        if m:
+            icao, pil_code = m.group(1).upper(), m.group(2).upper()
+            office = icao[1:] if len(icao) == 4 else icao
+            return MessageCreate(
+                source="nwws", wmo_heading=None, awips_id=None,
+                pil_code=pil_code[:50], office=office[:50], product_text=body,
+            )
 
-        for i, line in enumerate(lines):
+        m = self._NWWS_ISSUED.match(body)
+        if m:
+            icao = m.group(1).upper()
+            office = icao[1:] if len(icao) == 4 else icao
+            return MessageCreate(
+                source="nwws", wmo_heading=None, awips_id=None,
+                pil_code="UNK", office=office[:50], product_text=body,
+            )
+
+        # --- Raw WMO product format (multi-line) ---
+        lines = body.splitlines()
+        wmo_heading = awips_id = pil_code = office = None
+
+        for line in lines:
             line = line.strip()
             if not line:
                 continue
-            if wmo_heading is None and wmo_pattern.match(line):
+            if wmo_heading is None and self._WMO_PATTERN.match(line):
                 parts = line.split()
                 wmo_heading = parts[0]
                 if len(parts) > 1:
                     office = parts[1][:50]
-            elif awips_id is None and awips_pattern.match(line):
+            elif awips_id is None and self._AWIPS_PATTERN.match(line):
                 awips_id = line
                 pil_code = line
             if wmo_heading and awips_id:
@@ -143,21 +179,12 @@ class NWWSClient(slixmpp.ClientXMPP):
         if not pil_code:
             for line in lines:
                 line = line.strip()
-                if awips_pattern.match(line):
+                if self._AWIPS_PATTERN.match(line):
                     pil_code = line
                     break
 
         if not pil_code:
-            # Try to derive from content
-            for line in lines[:10]:
-                line = line.strip()
-                if len(line) >= 3 and len(line) <= 6 and line.isalpha():
-                    pil_code = line.upper()
-                    break
-
-        if not pil_code:
             pil_code = "UNK"
-
         if not office:
             office = "NWS"
 
