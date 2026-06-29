@@ -85,18 +85,14 @@ class NWWSClient(slixmpp.ClientXMPP):
             logger.exception("Error joining NWWS-OI MUC room")
 
     async def on_groupchat_message(self, msg):
-        logger.info(f"NWWS-OI received message from {msg['from']}")
-        
         if msg["from"].resource == self.boundjid.user:
-            logger.info("Ignoring message from self")
             return
 
         body = msg["body"]
         if not body:
-            logger.info("Message has no body, ignoring")
             return
 
-        logger.info(f"Processing NWWS-OI message (length: {len(body)})")
+        logger.debug("NWWS-OI message body: %s", body[:120].replace('\n', ' '))
 
         try:
             parsed = self._parse_message(body)
@@ -104,13 +100,15 @@ class NWWSClient(slixmpp.ClientXMPP):
                 stored = await message_processor.process(parsed)
                 if stored:
                     self._messages_count += 1
-                    logger.info(f"Stored NWWS-OI message: {parsed.wmo_heading}")
+                else:
+                    logger.debug("NWWS-OI message not stored (duplicate?): pil=%s", parsed.pil_code)
+            else:
+                logger.debug("NWWS-OI message not parsed (no pil/wmo?): %s", body[:80].replace('\n', ' '))
         except Exception:
             logger.exception("Error processing NWWS message")
 
     async def on_groupchat_presence(self, prs):
-        mucnick = prs.get('mucnick', 'unknown')
-        logger.info(f"NWWS-OI presence: {prs['from']} (nick: {mucnick})")
+        pass  # Presence flood on join; handled by xep_0045 internally
 
     def _parse_message(self, body: str) -> MessageCreate | None:
         lines = body.strip().splitlines()
