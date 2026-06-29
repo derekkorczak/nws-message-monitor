@@ -59,10 +59,7 @@ class APIPoller:
                     break
 
     async def _poll_once(self, client: httpx.AsyncClient):
-        resp = await client.get(
-            f"{NWS_API_BASE}/alerts/active",
-            params={"limit": 500},
-        )
+        resp = await client.get(f"{NWS_API_BASE}/alerts/active")
         resp.raise_for_status()
         data = resp.json()
 
