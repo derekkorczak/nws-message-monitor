@@ -70,13 +70,23 @@ class NWWSClient(slixmpp.ClientXMPP):
         self._connected = True
         self._reconnect_delay = 5
         self._connect_event.set()
+        # Use make_join_stanza instead of join_muc/join_muc_wait because
+        # NWWS-OI doesn't send the status-110 self-presence confirmation that
+        # join_muc_wait requires, causing it to always time out.
         try:
-            await self.plugin["xep_0045"].join_muc(NWWS_MUC, self.boundjid.user)
-        except Exception as e:
-            logger.warning("MUC join error (may still be joined): %s", e)
+            from slixmpp import JID
+            room = JID(NWWS_MUC)
+            xep_0045 = self.plugin["xep_0045"]
+            xep_0045.rooms[None][room] = {}
+            xep_0045.our_nicks[None][room] = self.boundjid.user
+            stanza = xep_0045.make_join_stanza(room, self.boundjid.user, maxstanzas=0)
+            stanza.send()
+            logger.info("NWWS-OI MUC join presence sent")
+        except Exception:
+            logger.exception("Error joining NWWS-OI MUC room")
 
     async def on_groupchat_message(self, msg):
-        if msg["mucnick"] == self.boundjid.user:
+        if msg["from"].resource == self.boundjid.user:
             return
 
         body = msg["body"]
