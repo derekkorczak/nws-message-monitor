@@ -241,9 +241,10 @@ class NWWSClient(slixmpp.ClientXMPP):
             except Exception:
                 pass
 
-        # Build the 4-letter ICAO office code expected by the API.
+        # The NWS /products/types/{PIL}/locations/{OFFICE} endpoint uses the
+        # 3-letter location code (e.g. "JAN"), not the 4-letter ICAO ("KJAN").
+        # The office field is already stored as 3-letter in _parse_message.
         office_upper = office.upper()
-        icao = office_upper if len(office_upper) == 4 else f"K{office_upper}"
         pil_upper = pil_code.upper()
 
         settings = get_settings()
@@ -252,16 +253,12 @@ class NWWSClient(slixmpp.ClientXMPP):
         try:
             async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
                 # Step 1: get the list of recent products of this type from this office.
-                url = f"{NWS_API_BASE}/products/types/{pil_upper}/locations/{icao}"
+                url = f"{NWS_API_BASE}/products/types/{pil_upper}/locations/{office_upper}"
                 resp = await client.get(url)
-                if resp.status_code == 404:
-                    # Some offices use the 3-letter code without K prefix.
-                    url = f"{NWS_API_BASE}/products/types/{pil_upper}/locations/{office_upper}"
-                    resp = await client.get(url)
                 if resp.status_code != 200:
                     logger.debug(
                         "NWS API product list failed: office=%s pil=%s status=%s",
-                        icao, pil_upper, resp.status_code,
+                        office_upper, pil_upper, resp.status_code,
                     )
                     return None
 
@@ -269,7 +266,7 @@ class NWWSClient(slixmpp.ClientXMPP):
                 if not graph:
                     logger.debug(
                         "NWS API returned empty product list for office=%s pil=%s",
-                        icao, pil_upper,
+                        office_upper, pil_upper,
                     )
                     return None
 
