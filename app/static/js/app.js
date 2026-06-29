@@ -59,6 +59,47 @@
         });
     }
 
+    function formatRelativeExpiration(isoStr) {
+        if (!isoStr) return null;
+        const now = Date.now();
+        const target = new Date(isoStr).getTime();
+        const diffMs = target - now;
+        const absDiff = Math.abs(diffMs);
+        const minutes = Math.floor(absDiff / 60000);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        let relative;
+        if (days > 0) relative = `${days}d ${hours % 24}h`;
+        else if (hours > 0) relative = `${hours}h ${minutes % 60}m`;
+        else if (minutes > 0) relative = `${minutes}m`;
+        else relative = "less than 1m";
+
+        if (diffMs < 0) {
+            return { text: `Expired ${relative} ago`, state: "expired" };
+        }
+        if (minutes < 5) {
+            return { text: `Expiring in ${relative}`, state: "imminent" };
+        }
+        return { text: `Expires in ${relative}`, state: "active" };
+    }
+
+    function updateRelativeExpirations() {
+        document.querySelectorAll(".message-item").forEach((el) => {
+            const id = el.dataset.id;
+            const msg = state.messages.find((m) => m.id === id);
+            const badge = el.querySelector(".message-expiry");
+            if (!badge || !msg) return;
+            const rel = formatRelativeExpiration(msg.expires_at);
+            if (!rel) {
+                badge.remove();
+                return;
+            }
+            badge.textContent = rel.text;
+            badge.className = `message-expiry expiry-${rel.state}`;
+        });
+    }
+
     function getHeadline(text) {
         if (!text) return "No content";
         const lines = text.split("\n").filter((l) => l.trim());
@@ -107,9 +148,17 @@
             return;
         }
 
-        list.innerHTML = state.messages.map((msg) => `
+        list.innerHTML = state.messages.map((msg) => {
+            const rel = formatRelativeExpiration(msg.expires_at);
+            const expiryBadge = rel
+                ? `<div class="message-expiry expiry-${rel.state}">${escapeHtml(rel.text)}</div>`
+                : "";
+            return `
             <div class="message-item" data-id="${msg.id}" onclick="app.showMessage('${msg.id}')">
-                <div class="message-time">${formatTime(msg.received_at)}</div>
+                <div class="message-time">
+                    ${formatTime(msg.received_at)}
+                    ${expiryBadge}
+                </div>
                 <div class="message-info">
                     <div class="message-head">
                         <span class="message-pil">${escapeHtml(msg.pil_code)}</span>
@@ -122,7 +171,8 @@
                     <button class="btn-icon" onclick="event.stopPropagation(); app.deleteMessage('${msg.id}')" title="Delete">&#10005;</button>
                 </div>
             </div>
-        `).join("");
+        `;
+        }).join("");
     }
 
     function renderPagination() {
@@ -607,7 +657,7 @@
         loadMessages();
         connectSSE();
         setInterval(() => app.pollStatus(), 30000);
-        setInterval(sweepExpired, 60000);
+        setInterval(() => { sweepExpired(); updateRelativeExpirations(); }, 60000);
         app.pollStatus();
     }
 

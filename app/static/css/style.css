@@ -281,6 +281,31 @@ body {
     flex-shrink: 0;
 }
 
+.message-expiry {
+    font-size: 0.68rem;
+    margin-top: 0.25rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    font-weight: 600;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.expiry-active {
+    background: rgba(52, 211, 153, 0.12);
+    color: var(--success);
+}
+
+.expiry-imminent {
+    background: rgba(251, 191, 36, 0.15);
+    color: var(--warning);
+}
+
+.expiry-expired {
+    background: rgba(248, 113, 113, 0.15);
+    color: var(--danger);
+}
+
 .message-info { flex: 1; min-width: 0; }
 
 .message-head {
