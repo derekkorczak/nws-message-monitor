@@ -98,6 +98,12 @@ class NWWSClient(slixmpp.ClientXMPP):
             return
 
         logger.debug("NWWS-OI message body: %s", body[:120].replace('\n', ' '))
+        try:
+            import xml.etree.ElementTree as ET
+            raw_xml = ET.tostring(msg.xml, encoding="unicode")
+            logger.debug("NWWS-OI raw XML: %s", raw_xml[:2000])
+        except Exception as _xe:
+            logger.debug("NWWS-OI could not serialize XML: %s", _xe)
 
         try:
             parsed = self._parse_message(body)
