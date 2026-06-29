@@ -268,7 +268,6 @@
         },
 
         async deleteMessage(id) {
-            if (!confirm("Delete this message?")) return;
             try {
                 await api.del(`/api/messages/${id}`);
                 state.messages = state.messages.filter((m) => m.id !== id);
