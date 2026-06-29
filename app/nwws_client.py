@@ -149,7 +149,9 @@ class NWWSClient(slixmpp.ClientXMPP):
         logger.warning("NWWS-OI auth failed: %s", event)
 
     def connect(self):
-        return XMLStream.connect(self, NWWS_HOST, NWWS_PORT, use_ssl=True, force_starttls=False)
+        if hasattr(self, 'init_plugins'):
+            self.init_plugins()
+        return XMLStream.connect(self, NWWS_HOST, NWWS_PORT)
 
     @property
     def is_connected(self) -> bool:
