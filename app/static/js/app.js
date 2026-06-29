@@ -10,6 +10,9 @@
         totalMessages: 0,
         searchQuery: "",
         editingFilterId: null,
+        filterOptions: [],
+        selectedValues: [],
+        filterSearchQuery: "",
     };
 
     const $ = (sel) => document.querySelector(sel);
@@ -190,12 +193,16 @@
 
         openAddFilter() {
             state.editingFilterId = null;
+            state.selectedValues = [];
+            state.filterSearchQuery = "";
             $("#filter-modal-title").textContent = "Add Filter";
             $("#filter-name").value = "";
             $("#filter-type").value = "product";
             $("#filter-mode").value = "include";
             $("#filter-values").value = "";
+            $("#filter-values-search").value = "";
             $("#filter-enabled").checked = true;
+            this.loadFilterOptions();
             showModal("filter-modal");
         },
 
@@ -203,13 +210,88 @@
             const filter = state.filters.find((f) => f.id === id);
             if (!filter) return;
             state.editingFilterId = id;
+            state.selectedValues = [...filter.values];
+            state.filterSearchQuery = "";
             $("#filter-modal-title").textContent = "Edit Filter";
             $("#filter-name").value = filter.name;
             $("#filter-type").value = filter.type;
             $("#filter-mode").value = filter.mode;
-            $("#filter-values").value = filter.values.join("\n");
+            $("#filter-values-search").value = "";
             $("#filter-enabled").checked = filter.enabled;
+            this.loadFilterOptions();
             showModal("filter-modal");
+        },
+
+        async loadFilterOptions() {
+            const type = $("#filter-type").value;
+            const optionsEl = $("#filter-values-options");
+            optionsEl.innerHTML = `<div class="multi-select-loading">Loading options...</div>`;
+            try {
+                state.filterOptions = await api.get(`/api/filter-options/${type}`);
+                this.renderFilterOptions();
+            } catch (err) {
+                console.error("Failed to load filter options:", err);
+                optionsEl.innerHTML = `<div class="multi-select-empty">Failed to load options</div>`;
+            }
+        },
+
+        renderFilterOptions() {
+            const optionsEl = $("#filter-values-options");
+            const pillsEl = $("#filter-values-pills");
+            const countEl = $("#filter-values-count");
+
+            const search = state.filterSearchQuery.toLowerCase();
+            const filtered = state.filterOptions.filter((opt) =>
+                opt.toLowerCase().includes(search)
+            );
+
+            if (filtered.length === 0) {
+                optionsEl.innerHTML = state.filterOptions.length === 0
+                    ? `<div class="multi-select-empty">No options available. Messages will populate this list.</div>`
+                    : `<div class="multi-select-empty">No matches found</div>`;
+            } else {
+                optionsEl.innerHTML = filtered.map((opt) => {
+                    const checked = state.selectedValues.includes(opt) ? "checked" : "";
+                    return `
+                    <label class="multi-select-option">
+                        <input type="checkbox" ${checked} onchange="app.toggleValue('${escapeHtml(opt).replace(/'/g, "\\'")}')">
+                        <span>${escapeHtml(opt)}</span>
+                    </label>
+                `}).join("");
+            }
+
+            if (state.selectedValues.length === 0) {
+                pillsEl.innerHTML = "";
+            } else {
+                pillsEl.innerHTML = state.selectedValues.map((val) => `
+                    <span class="multi-select-pill">
+                        ${escapeHtml(val)}
+                        <span class="multi-select-pill-x" onclick="app.removeValue('${escapeHtml(val).replace(/'/g, "\\'")}')">&times;</span>
+                    </span>
+                `).join("");
+            }
+
+            countEl.textContent = `${state.selectedValues.length} selected`;
+            $("#filter-values").value = state.selectedValues.join(",");
+        },
+
+        toggleValue(val) {
+            if (state.selectedValues.includes(val)) {
+                state.selectedValues = state.selectedValues.filter((v) => v !== val);
+            } else {
+                state.selectedValues.push(val);
+            }
+            this.renderFilterOptions();
+        },
+
+        removeValue(val) {
+            state.selectedValues = state.selectedValues.filter((v) => v !== val);
+            this.renderFilterOptions();
+        },
+
+        clearValues() {
+            state.selectedValues = [];
+            this.renderFilterOptions();
         },
 
         async saveFilter(e) {
@@ -218,9 +300,14 @@
                 name: $("#filter-name").value.trim(),
                 type: $("#filter-type").value,
                 mode: $("#filter-mode").value,
-                values: $("#filter-values").value.split("\n").map((v) => v.trim()).filter(Boolean),
+                values: state.selectedValues,
                 enabled: $("#filter-enabled").checked,
             };
+
+            if (state.selectedValues.length === 0) {
+                alert("Please select at least one value");
+                return;
+            }
 
             try {
                 if (state.editingFilterId) {
@@ -421,6 +508,20 @@
 
         $("#filter-form").addEventListener("submit", (e) => app.saveFilter(e));
         $("#settings-form").addEventListener("submit", (e) => app.saveSettings(e));
+
+        $("#filter-type").addEventListener("change", () => {
+            state.selectedValues = [];
+            state.filterSearchQuery = "";
+            $("#filter-values-search").value = "";
+            app.loadFilterOptions();
+        });
+
+        $("#filter-values-search").addEventListener("input", (e) => {
+            state.filterSearchQuery = e.target.value;
+            app.renderFilterOptions();
+        });
+
+        $("#filter-values-clear").addEventListener("click", () => app.clearValues());
 
         $$(".modal-close").forEach((btn) => {
             btn.addEventListener("click", () => {

@@ -2,10 +2,10 @@ CREATE TABLE IF NOT EXISTS messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     source VARCHAR(10) NOT NULL CHECK (source IN ('nwws', 'api')),
-    wmo_heading VARCHAR(10),
-    awips_id VARCHAR(20),
-    pil_code VARCHAR(10) NOT NULL,
-    office VARCHAR(10) NOT NULL,
+    wmo_heading VARCHAR(50),
+    awips_id VARCHAR(255),
+    pil_code VARCHAR(50) NOT NULL,
+    office VARCHAR(50) NOT NULL,
     product_text TEXT NOT NULL,
     is_deleted BOOLEAN DEFAULT FALSE,
     deleted_at TIMESTAMPTZ,
@@ -39,3 +39,8 @@ INSERT INTO settings (key, value) VALUES
     ('api_poll_interval', '30'),
     ('data_source', 'api')
 ON CONFLICT (key) DO NOTHING;
+
+ALTER TABLE messages ALTER COLUMN wmo_heading TYPE VARCHAR(50);
+ALTER TABLE messages ALTER COLUMN awips_id TYPE VARCHAR(255);
+ALTER TABLE messages ALTER COLUMN pil_code TYPE VARCHAR(50);
+ALTER TABLE messages ALTER COLUMN office TYPE VARCHAR(50);

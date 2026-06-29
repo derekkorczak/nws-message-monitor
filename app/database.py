@@ -25,7 +25,12 @@ async def _migrate():
     schema_path = pathlib.Path(__file__).resolve().parent.parent / "db" / "schema.sql"
     sql = schema_path.read_text()
     async with pool.acquire() as conn:
-        await conn.execute(sql)
+        statements = [s.strip() for s in sql.split(";") if s.strip()]
+        for sql in statements:
+            try:
+                await conn.execute(sql)
+            except Exception as e:
+                logger.warning("Migration statement warning: %s", e)
     logger.info("Database schema migrated")
 
 

@@ -442,6 +442,108 @@ body {
 
 .form-group textarea { resize: vertical; font-family: monospace; }
 
+.multi-select {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    max-height: 300px;
+    display: flex;
+    flex-direction: column;
+}
+
+.multi-select-search input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.multi-select-search input::placeholder { color: var(--text-dim); }
+
+.multi-select-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    max-height: 100px;
+    overflow-y: auto;
+    border-bottom: 1px solid var(--border);
+}
+
+.multi-select-pills:empty { display: none; }
+
+.multi-select-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.4rem;
+    background: rgba(74, 158, 255, 0.15);
+    color: var(--primary);
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-family: monospace;
+}
+
+.multi-select-pill-x {
+    cursor: pointer;
+    font-weight: bold;
+    opacity: 0.7;
+}
+
+.multi-select-pill-x:hover { opacity: 1; }
+
+.multi-select-options {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 150px;
+    padding: 0.25rem 0;
+}
+
+.multi-select-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-family: monospace;
+    transition: background 0.1s;
+}
+
+.multi-select-option:hover { background: var(--bg-hover); }
+
+.multi-select-option input[type="checkbox"] {
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.multi-select-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.75rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.multi-select-footer .btn-sm {
+    padding: 0.1rem 0.4rem;
+    font-size: 0.7rem;
+}
+
+.multi-select-loading,
+.multi-select-empty {
+    padding: 0.75rem;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+}
+
 .form-actions {
     display: flex;
     gap: 0.5rem;

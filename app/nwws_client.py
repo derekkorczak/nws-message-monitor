@@ -82,7 +82,7 @@ class NWWSClient(slixmpp.ClientXMPP):
                 parts = line.split()
                 wmo_heading = parts[0]
                 if len(parts) > 1:
-                    office = parts[1][:10]
+                    office = parts[1][:50]
             elif awips_id is None and awips_pattern.match(line):
                 awips_id = line
                 pil_code = line
@@ -112,10 +112,10 @@ class NWWSClient(slixmpp.ClientXMPP):
 
         return MessageCreate(
             source="nwws",
-            wmo_heading=wmo_heading,
-            awips_id=awips_id,
-            pil_code=pil_code,
-            office=office,
+            wmo_heading=wmo_heading[:50] if wmo_heading else None,
+            awips_id=awips_id[:255] if awips_id else None,
+            pil_code=pil_code[:50],
+            office=office[:50],
             product_text=body,
         )
 

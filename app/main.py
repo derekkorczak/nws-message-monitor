@@ -1,5 +1,7 @@
 import asyncio
+import json
 import logging
+import re
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -8,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from pathlib import Path
 from uuid import UUID
+import httpx
 
 from app.config import get_settings
 from app.database import init_db, close_db, get_pool
@@ -282,6 +285,89 @@ async def export_filters():
     rows = await pool.fetch("SELECT name, type, mode, values, enabled FROM filters ORDER BY type, name")
     return [{"name": r["name"], "type": r["type"], "mode": r["mode"],
              "values": r["values"], "enabled": r["enabled"]} for r in rows]
+
+
+@app.get("/api/filter-options/{filter_type}")
+async def get_filter_options(filter_type: str):
+    pool = get_pool()
+    settings = get_settings()
+    
+    if filter_type == "product":
+        rows = await pool.fetch(
+            "SELECT DISTINCT pil_code FROM messages ORDER BY pil_code"
+        )
+        return [r["pil_code"] for r in rows]
+    elif filter_type == "office":
+        rows = await pool.fetch(
+            "SELECT DISTINCT office FROM messages ORDER BY office"
+        )
+        return [r["office"] for r in rows]
+    elif filter_type == "zone":
+        # Query NWS zones API for all available zones
+        zones = set()
+        try:
+            async with httpx.AsyncClient() as client:
+                for zone_type in ["county", "forecast", "public"]:
+                    resp = await client.get(
+                        "https://api.weather.gov/zones",
+                        params={"type": zone_type},
+                        headers={"User-Agent": settings.api_user_agent},
+                        timeout=10.0
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        for feature in data.get("features", []):
+                            props = feature.get("properties", {})
+                            zone_id = props.get("id", "")
+                            if zone_id:
+                                zones.add(zone_id)
+        except Exception as e:
+            logger.warning(f"Failed to fetch zones from NWS API: {e}")
+        
+        # Also extract from existing messages
+        rows = await pool.fetch(
+            "SELECT DISTINCT product_text FROM messages "
+            "WHERE product_text ILIKE '%Z%' OR product_text ILIKE '%C%'"
+        )
+        for r in rows:
+            matches = re.findall(r'\b([A-Z]{2}[CZ]\d{3})\b', r["product_text"])
+            zones.update(matches)
+        
+        return sorted(zones)
+    elif filter_type == "location":
+        # Query NWS zones API for all county/zone names
+        locations = set()
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    "https://api.weather.gov/zones",
+                    params={"type": "county"},
+                    headers={"User-Agent": settings.api_user_agent},
+                    timeout=10.0
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    for feature in data.get("features", []):
+                        props = feature.get("properties", {})
+                        name = props.get("name", "")
+                        if name:
+                            locations.add(name)
+        except Exception as e:
+            logger.warning(f"Failed to fetch locations from NWS API: {e}")
+        
+        # Also extract from existing messages
+        rows = await pool.fetch("SELECT product_text FROM messages")
+        for r in rows:
+            for line in r["product_text"].splitlines():
+                if line.startswith("Areas:"):
+                    area_str = line[6:].strip()
+                    for loc in area_str.split(";"):
+                        loc = " ".join(loc.strip().split())
+                        if loc and len(loc) > 2:
+                            locations.add(loc)
+        
+        return sorted(locations)
+    return []
 
 
 @app.post("/api/filters/import")
