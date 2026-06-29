@@ -17,6 +17,11 @@ class NWWSClient(slixmpp.ClientXMPP):
     def __init__(self, username: str, password: str):
         super().__init__(username, password)
 
+        self.address = (NWWS_HOST, NWWS_PORT)
+        self.use_ssl = True
+        self.force_starttls = False
+        self.use_srv = False
+
         self.register_plugin("xep_0045")
         self.register_plugin("xep_0199")
         self.add_event_handler("session_start", self.on_session_start)
@@ -180,11 +185,7 @@ class NWWSManager:
         while self._running:
             try:
                 self._client = NWWSClient(settings.nwws_username, settings.nwws_password)
-                connected = await self._client.connect(
-                    address=(NWWS_HOST, NWWS_PORT),
-                    use_ssl=True,
-                    force_starttls=False,
-                )
+                connected = await self._client.connect()
                 if not connected:
                     logger.warning("NWWS-OI connect() returned False")
                 else:
