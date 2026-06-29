@@ -224,7 +224,12 @@ class NWWSClient(slixmpp.ClientXMPP):
         )
 
     async def _fetch_full_product(self, office: str, pil_code: str, body: str) -> str | None:
-        """Fetch the full product text from the NWS API products endpoint."""
+        """Fetch the full product text from the NWS API products endpoint.
+
+        The NWS /products list returns @graph entries with metadata only (no
+        productText).  We first find the matching product ID, then fetch the
+        individual product to obtain the full productText.
+        """
         m = re.search(
             r'valid\s+(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z', body, re.IGNORECASE,
         )
@@ -233,16 +238,16 @@ class NWWSClient(slixmpp.ClientXMPP):
 
         try:
             valid_dt = datetime.fromisoformat(m.group(1) + "+00:00")
-            start_dt = (valid_dt - timedelta(minutes=5))
-            end_dt = (valid_dt + timedelta(minutes=5))
-            start_str = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-            end_str = end_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            start_str = (valid_dt - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            end_str = (valid_dt + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
         except Exception:
             logger.debug("Failed to parse valid time from: %s", body[:80])
             return None
 
         settings = get_settings()
         headers = {"User-Agent": settings.api_user_agent}
+        target_office = office.upper()
+        target_pil = pil_code.upper()
 
         try:
             params = {
@@ -251,20 +256,21 @@ class NWWSClient(slixmpp.ClientXMPP):
                 "sort": "-issuanceTime",
             }
             async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
+                # Step 1: list products in the time window.
+                # The response uses @graph (not features) and does NOT include
+                # productText — only metadata such as id, issuingOffice, productCode.
                 resp = await client.get(f"{NWS_API_BASE}/products", params=params)
                 if resp.status_code != 200:
-                    logger.debug("NWS API product fetch failed: status=%s", resp.status_code)
+                    logger.debug("NWS API product list failed: status=%s", resp.status_code)
                     return None
 
                 data = resp.json()
-                target_office = office.upper()
-                target_pil = pil_code.upper()
+                graph = data.get("@graph", [])
 
-                features = data.get("features", [])
-                for feature in features:
-                    props = feature.get("properties", {})
-                    prop_office = (props.get("issuingOffice") or "").upper()
-                    prop_code = (props.get("productCode") or "").upper()[:5]
+                product_id = None
+                for item in graph:
+                    prop_office = (item.get("issuingOffice") or "").upper()
+                    prop_code = (item.get("productCode") or "").upper()[:5]
 
                     office_matches = (
                         prop_office == f"K{target_office}"
@@ -274,19 +280,27 @@ class NWWSClient(slixmpp.ClientXMPP):
                     pil_matches = prop_code == target_pil
 
                     if office_matches and pil_matches:
-                        product_text = props.get("productText", "")
-                        if product_text:
-                            return product_text
+                        product_id = item.get("id")
+                        break
 
-                # Fallback: return the first result if any features exist
-                if features:
-                    product_text = (features[0].get("properties", {}).get("productText", ""))
-                    if product_text:
-                        logger.debug(
-                            "Used fallback product text for office=%s pil=%s (office/pil mismatch)",
-                            office, pil_code,
-                        )
-                        return product_text
+                if not product_id:
+                    logger.debug(
+                        "No matching product found in NWS API list for office=%s pil=%s "
+                        "(window %s – %s, %d results)",
+                        office, pil_code, start_str, end_str, len(graph),
+                    )
+                    return None
+
+                # Step 2: fetch the individual product to get productText.
+                resp2 = await client.get(f"{NWS_API_BASE}/products/{product_id}")
+                if resp2.status_code != 200:
+                    logger.debug("NWS API product fetch failed: id=%s status=%s",
+                                 product_id, resp2.status_code)
+                    return None
+
+                product_text = resp2.json().get("productText", "")
+                if product_text:
+                    return product_text
 
                 return None
         except Exception:
