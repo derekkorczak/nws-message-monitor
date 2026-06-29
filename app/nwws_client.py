@@ -126,6 +126,9 @@ class NWWSClient(slixmpp.ClientXMPP):
     async def on_groupchat_presence(self, prs):
         pass  # Presence flood on join; handled by xep_0045 internally
 
+    # Full WMO header line: TTAAII CCCC DDHHMM [BBB]
+    _WMO_HEADER = re.compile(r'^[A-Z]{4}\d{2}\s+\w{4}\s+\d{6}', re.IGNORECASE)
+
     def _parse_nwws_extension(self, msg) -> MessageCreate | None:
         """Parse the full NWS product from the <x xmlns='nwws-oi'> stanza extension.
 
@@ -144,6 +147,11 @@ class NWWSClient(slixmpp.ClientXMPP):
         if not product_text:
             return None
 
+        # Strip the leading NWWS sequence number (e.g. "314\n\n") that precedes
+        # the actual product content.  The sequence number is a short integer on
+        # its own line at the very top of the element text.
+        product_text = re.sub(r'^\d{1,6}\s*\n+', '', product_text)
+
         ttaaii  = x_elem.get("ttaaii", "").strip()   # e.g. "WHUS53"
         cccc    = x_elem.get("cccc",    "").strip()   # e.g. "KDLH"
         awipsid = x_elem.get("awipsid", "").strip()   # e.g. "SMWDLH"
@@ -154,8 +162,19 @@ class NWWSClient(slixmpp.ClientXMPP):
         else:
             office = cccc.upper() or "NWS"
 
-        # WMO heading is "TTAAII CCCC", e.g. "WHUS53 KDLH".
-        wmo_heading = f"{ttaaii} {cccc}".strip() if ttaaii and cccc else None
+        # Extract the full WMO heading line (TTAAII CCCC DDHHMM) from the product
+        # text.  This includes the issuance timestamp absent from the XML attributes
+        # and allows cross-source deduplication with API-sourced messages which store
+        # the same WMO heading (e.g. "WWUS53 KBIS 292230").
+        wmo_heading = None
+        for line in product_text.splitlines():
+            line = line.strip()
+            if line and self._WMO_HEADER.match(line):
+                wmo_heading = line
+                break
+        # Fall back to attribute-based heading if the product text has no WMO line.
+        if not wmo_heading and ttaaii and cccc:
+            wmo_heading = f"{ttaaii} {cccc}".strip()
 
         # Derive PIL code from awipsid by stripping the trailing 3-letter office.
         # e.g. "SMWDLH" - "DLH" = "SMW"; "RR3ACR" - "ACR" = "RR3".

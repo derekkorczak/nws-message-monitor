@@ -21,9 +21,11 @@ class MessageProcessor:
 
         pool = get_pool()
 
+        # --- Dedup by awips_id (same-source or same URN) ---
         if msg.awips_id:
             existing = await pool.fetchrow(
-                "SELECT id, is_deleted, product_text, wmo_heading FROM messages WHERE awips_id = $1 "
+                "SELECT id, is_deleted, source, product_text, wmo_heading FROM messages "
+                "WHERE awips_id = $1 "
                 "AND COALESCE(expires_at, received_at + INTERVAL '1 hour') > NOW()",
                 msg.awips_id,
             )
@@ -39,9 +41,35 @@ class MessageProcessor:
                         "wmo_heading = $2 WHERE id = $3",
                         new_text, new_wmo, existing["id"],
                     )
-                    logger.debug("Upgraded dedup message %s to nwws", existing["id"])
+                    logger.debug("Upgraded awips_id-matched message %s to nwws", existing["id"])
                 else:
-                    logger.debug("Duplicate message skipped: %s (deleted=%s)", msg.awips_id, existing["is_deleted"])
+                    logger.debug("Duplicate skipped (awips_id=%s deleted=%s)", msg.awips_id, existing["is_deleted"])
+                return False
+
+        # --- Dedup by wmo_heading (cross-source: NWWS vs API for same product) ---
+        # Both NWWS and API carry the same WMO heading line (e.g. "WWUS53 KBIS 292230")
+        # which uniquely identifies a product issuance.  Use it to avoid storing the
+        # same product twice when both sources deliver it.
+        if msg.wmo_heading:
+            existing_wmo = await pool.fetchrow(
+                "SELECT id, is_deleted, source, product_text FROM messages "
+                "WHERE wmo_heading = $1 "
+                "AND COALESCE(expires_at, received_at + INTERVAL '2 hours') > NOW()",
+                msg.wmo_heading,
+            )
+            if existing_wmo and not existing_wmo["is_deleted"]:
+                if msg.source == "nwws" and existing_wmo["source"] != "nwws":
+                    # Upgrade the existing API record to NWWS with the raw product text.
+                    await pool.execute(
+                        "UPDATE messages SET source = 'nwws', product_text = $1, "
+                        "awips_id = COALESCE(awips_id, $2) WHERE id = $3",
+                        msg.product_text,
+                        msg.awips_id,
+                        existing_wmo["id"],
+                    )
+                    logger.debug("Upgraded wmo_heading-matched message %s api→nwws", existing_wmo["id"])
+                else:
+                    logger.debug("Duplicate skipped (wmo_heading=%s)", msg.wmo_heading)
                 return False
 
         row = await pool.fetchrow(
