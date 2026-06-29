@@ -20,6 +20,7 @@ class NWWSClient(slixmpp.ClientXMPP):
         self.ssl_version = "tls"
         self.force_starttls = True
         self.use_srv = False
+        self.use_ssl = False
         self.port = NWWS_PORT
 
         self.register_plugin("xep_0045")  # MUC
@@ -174,8 +175,7 @@ class NWWSManager:
         while self._running:
             try:
                 self._client = NWWSClient(settings.nwws_username, settings.nwws_password)
-                self._client.connect(use_ssl=False)
-                self._client.process(forever=False)
+                await self._client.connect()
                 while self._running and self._client._connected:
                     await asyncio.sleep(1)
             except Exception:
