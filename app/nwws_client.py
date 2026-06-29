@@ -2,6 +2,10 @@ import asyncio
 import logging
 import re
 import ssl
+from datetime import timedelta
+from datetime import datetime, timezone
+
+import httpx
 import slixmpp
 from slixmpp.xmlstream import XMLStream
 from app.config import get_settings
@@ -13,6 +17,7 @@ logger = logging.getLogger(__name__)
 NWWS_HOST = "nwws-oi.weather.gov"
 NWWS_PORT = 5222
 NWWS_MUC = "NWWS@conference.nwws-oi.weather.gov"
+NWS_API_BASE = "https://api.weather.gov"
 
 
 class NWWSClient(slixmpp.ClientXMPP):
@@ -97,9 +102,30 @@ class NWWSClient(slixmpp.ClientXMPP):
         try:
             parsed = self._parse_message(body)
             if parsed:
+                # For short-form NWWS notifications (no WMO heading), try to fetch
+                # the full product text from the NWS API using office and PIL code.
+                if (parsed.source == "nwws"
+                        and parsed.wmo_heading is None
+                        and parsed.awips_id is None
+                        and parsed.pil_code != "UNK"):
+                    full_text = await self._fetch_full_product(
+                        parsed.office, parsed.pil_code, body,
+                    )
+                    if full_text:
+                        parsed.product_text = full_text
+                        logger.info(
+                            "Fetched full product text for office=%s pil=%s (len=%d)",
+                            parsed.office, parsed.pil_code, len(full_text),
+                        )
+
                 stored = await message_processor.process(parsed)
                 if stored:
                     self._messages_count += 1
+                    if parsed.source == "nwws" and parsed.wmo_heading is None:
+                        logger.info(
+                            "Stored NWWS notification for office=%s pil=%s (text length=%d)",
+                            parsed.office, parsed.pil_code, len(parsed.product_text),
+                        )
                 else:
                     logger.debug("NWWS-OI message not stored (duplicate?): pil=%s", parsed.pil_code)
             else:
@@ -196,6 +222,76 @@ class NWWSClient(slixmpp.ClientXMPP):
             office=office[:50],
             product_text=body,
         )
+
+    async def _fetch_full_product(self, office: str, pil_code: str, body: str) -> str | None:
+        """Fetch the full product text from the NWS API products endpoint."""
+        m = re.search(
+            r'valid\s+(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z', body, re.IGNORECASE,
+        )
+        if not m:
+            return None
+
+        try:
+            valid_dt = datetime.fromisoformat(m.group(1) + "+00:00")
+            start_dt = (valid_dt - timedelta(minutes=5))
+            end_dt = (valid_dt + timedelta(minutes=5))
+            start_str = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            end_str = end_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        except Exception:
+            logger.debug("Failed to parse valid time from: %s", body[:80])
+            return None
+
+        settings = get_settings()
+        headers = {"User-Agent": settings.api_user_agent}
+
+        try:
+            params = {
+                "startTime": start_str,
+                "endTime": end_str,
+                "sort": "-issuanceTime",
+            }
+            async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
+                resp = await client.get(f"{NWS_API_BASE}/products", params=params)
+                if resp.status_code != 200:
+                    logger.debug("NWS API product fetch failed: status=%s", resp.status_code)
+                    return None
+
+                data = resp.json()
+                target_office = office.upper()
+                target_pil = pil_code.upper()
+
+                features = data.get("features", [])
+                for feature in features:
+                    props = feature.get("properties", {})
+                    prop_office = (props.get("issuingOffice") or "").upper()
+                    prop_code = (props.get("productCode") or "").upper()[:5]
+
+                    office_matches = (
+                        prop_office == f"K{target_office}"
+                        or prop_office == target_office
+                        or prop_office.endswith(target_office)
+                    )
+                    pil_matches = prop_code == target_pil
+
+                    if office_matches and pil_matches:
+                        product_text = props.get("productText", "")
+                        if product_text:
+                            return product_text
+
+                # Fallback: return the first result if any features exist
+                if features:
+                    product_text = (features[0].get("properties", {}).get("productText", ""))
+                    if product_text:
+                        logger.debug(
+                            "Used fallback product text for office=%s pil=%s (office/pil mismatch)",
+                            office, pil_code,
+                        )
+                        return product_text
+
+                return None
+        except Exception:
+            logger.exception("Error fetching full product text from NWS API")
+            return None
 
     def on_disconnected(self, event):
         self._connected = False
