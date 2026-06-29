@@ -66,12 +66,14 @@ class Settings(BaseModel):
     retention_days: int = 30
     api_poll_interval: int = 30
     data_source: str = "api"
+    default_expiration_minutes: int = 120
 
 
 class SettingsUpdate(BaseModel):
     retention_days: int | None = None
     api_poll_interval: int | None = None
     data_source: str | None = None
+    default_expiration_minutes: int | None = None
 
 
 class Status(BaseModel):

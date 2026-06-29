@@ -471,6 +471,7 @@
             $("#setting-retention").value = state.settings.retention_days;
             $("#setting-poll").value = state.settings.api_poll_interval;
             $("#setting-source").value = state.settings.data_source;
+            $("#setting-expiration").value = state.settings.default_expiration_minutes;
             showModal("settings-modal");
         },
 
@@ -481,6 +482,7 @@
                     retention_days: parseInt($("#setting-retention").value),
                     api_poll_interval: parseInt($("#setting-poll").value),
                     data_source: $("#setting-source").value,
+                    default_expiration_minutes: parseInt($("#setting-expiration").value),
                 });
                 await this.loadSettings();
                 hideModal("settings-modal");

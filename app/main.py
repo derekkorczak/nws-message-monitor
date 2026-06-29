@@ -261,6 +261,7 @@ async def get_settings_api():
         retention_days=int(d.get("retention_days", "30")),
         api_poll_interval=int(d.get("api_poll_interval", "30")),
         data_source=d.get("data_source", "api"),
+        default_expiration_minutes=int(d.get("default_expiration_minutes", "120")),
     )
 
 
@@ -274,6 +275,8 @@ async def update_settings(data: SettingsUpdate):
         updates["api_poll_interval"] = str(data.api_poll_interval)
     if data.data_source is not None:
         updates["data_source"] = data.data_source
+    if data.default_expiration_minutes is not None:
+        updates["default_expiration_minutes"] = str(data.default_expiration_minutes)
 
     for k, v in updates.items():
         await pool.execute(

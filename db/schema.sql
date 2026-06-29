@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS settings (
 INSERT INTO settings (key, value) VALUES
     ('retention_days', '30'),
     ('api_poll_interval', '30'),
-    ('data_source', 'api')
+    ('data_source', 'api'),
+    ('default_expiration_minutes', '120')
 ON CONFLICT (key) DO NOTHING;
 
 ALTER TABLE messages ALTER COLUMN wmo_heading TYPE VARCHAR(50);

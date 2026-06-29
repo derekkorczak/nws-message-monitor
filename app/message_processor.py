@@ -1,6 +1,6 @@
 import logging
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from app.database import get_pool
 from app.models import Message, MessageCreate
 from app.filter_engine import filter_engine
@@ -73,6 +73,20 @@ class MessageProcessor:
             msg.office, msg.product_text, msg.severity, msg.expires_at,
         )
 
+        expires_at = msg.expires_at
+        if expires_at is None:
+            default_exp_row = await pool.fetchrow(
+                "SELECT value FROM settings WHERE key = 'default_expiration_minutes'"
+            )
+            if default_exp_row:
+                default_minutes = int(default_exp_row["value"])
+                if default_minutes > 0:
+                    expires_at = row["received_at"] + timedelta(minutes=default_minutes)
+                    await pool.execute(
+                        "UPDATE messages SET expires_at = $1 WHERE id = $2",
+                        expires_at, row["id"],
+                    )
+
         stored = Message(
             id=row["id"],
             received_at=row["received_at"],
@@ -85,7 +99,7 @@ class MessageProcessor:
             severity=msg.severity,
             is_deleted=False,
             deleted_at=None,
-            expires_at=msg.expires_at,
+            expires_at=expires_at,
         )
 
         await broadcaster.broadcast_message(stored)
