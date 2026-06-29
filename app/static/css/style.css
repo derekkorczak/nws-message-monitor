@@ -288,22 +288,23 @@ body {
 
 .message-expiry {
     font-size: 0.68rem;
-    margin-top: 0.25rem;
+    margin-left: auto;
     padding: 0.1rem 0.35rem;
     border-radius: 3px;
     font-weight: 600;
     white-space: nowrap;
     display: inline-block;
+    align-self: center;
 }
 
 .expiry-active {
-    background: rgba(52, 211, 153, 0.12);
-    color: var(--success);
+    background: rgba(248, 113, 113, 0.15);
+    color: var(--danger);
 }
 
 .expiry-imminent {
-    background: rgba(251, 191, 36, 0.15);
-    color: var(--warning);
+    background: rgba(52, 211, 153, 0.12);
+    color: var(--success);
 }
 
 .expiry-expired {

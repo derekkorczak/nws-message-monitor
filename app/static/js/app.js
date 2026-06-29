@@ -179,7 +179,6 @@
             <div class="message-item ${itemSeverityClass}" data-id="${msg.id}" onclick="app.showMessage('${msg.id}')">
                 <div class="message-time">
                     ${formatTime(msg.received_at)}
-                    ${expiryBadge}
                 </div>
                 <div class="message-info">
                     <div class="message-head">
@@ -193,6 +192,7 @@
                 <div class="message-actions">
                     <button class="btn-icon" onclick="event.stopPropagation(); app.deleteMessage('${msg.id}')" title="Delete">&#10005;</button>
                 </div>
+                ${expiryBadge}
             </div>
         `;
         }).join("");
