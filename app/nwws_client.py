@@ -11,7 +11,7 @@ from app.message_processor import message_processor
 logger = logging.getLogger(__name__)
 
 NWWS_HOST = "nwws-oi.weather.gov"
-NWWS_PORT = 5223
+NWWS_PORT = 5222
 NWWS_MUC = "NWWS@conference.nwws-oi.weather.gov"
 
 
@@ -24,13 +24,13 @@ class NWWSClient(slixmpp.ClientXMPP):
 
         for attr in ("enable_direct_tls", "enable_starttls", "enable_plaintext"):
             if hasattr(self, attr):
-                setattr(self, "enable_direct_tls", True)
-                setattr(self, "enable_starttls", False)
+                setattr(self, "enable_direct_tls", False)
+                setattr(self, "enable_starttls", True)
                 setattr(self, "enable_plaintext", False)
                 break
 
-        self.use_ssl = True
-        self.force_starttls = False
+        self.use_ssl = False
+        self.force_starttls = True
 
         self.register_plugin("xep_0045")
         self.register_plugin("xep_0199")
