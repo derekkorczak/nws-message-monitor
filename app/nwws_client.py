@@ -2,10 +2,7 @@ import asyncio
 import logging
 import re
 import ssl
-from datetime import timedelta
-from datetime import datetime, timezone
 
-import httpx
 import slixmpp
 from slixmpp.xmlstream import XMLStream
 from app.config import get_settings
@@ -17,7 +14,12 @@ logger = logging.getLogger(__name__)
 NWWS_HOST = "nwws-oi.weather.gov"
 NWWS_PORT = 5222
 NWWS_MUC = "NWWS@conference.nwws-oi.weather.gov"
-NWS_API_BASE = "https://api.weather.gov"
+
+# XML namespace used by NWWS-OI for the product extension element.
+# Each groupchat message carries a <x xmlns="nwws-oi"> element whose text
+# content is the full NWS product and whose attributes supply all metadata.
+_NWWS_OI_NS = "nwws-oi"
+_NWWS_OI_X_TAG = f"{{{_NWWS_OI_NS}}}x"
 
 
 class NWWSClient(slixmpp.ClientXMPP):
@@ -98,54 +100,85 @@ class NWWSClient(slixmpp.ClientXMPP):
             return
 
         logger.debug("NWWS-OI message body: %s", body[:120].replace('\n', ' '))
-        try:
-            import xml.etree.ElementTree as ET
-            raw_xml = ET.tostring(msg.xml, encoding="unicode")
-            logger.debug("NWWS-OI raw XML: %s", raw_xml[:2000])
-        except Exception as _xe:
-            logger.debug("NWWS-OI could not serialize XML: %s", _xe)
 
         try:
-            parsed = self._parse_message(body)
+            # Primary: extract the full product from the <x xmlns="nwws-oi"> extension.
+            parsed = self._parse_nwws_extension(msg)
+            if parsed is None:
+                # Fallback: parse body text (handles raw WMO products or plain bodies).
+                parsed = self._parse_message(body)
+
             if parsed:
-                # For short-form NWWS notifications (no WMO heading), try to fetch
-                # the full product text from the NWS API using office and PIL code.
-                if (parsed.source == "nwws"
-                        and parsed.wmo_heading is None
-                        and parsed.awips_id is None
-                        and parsed.pil_code != "UNK"):
-                    full_text = await self._fetch_full_product(
-                        parsed.office, parsed.pil_code, body,
-                    )
-                    if full_text:
-                        parsed.product_text = full_text
-                        logger.info(
-                            "Fetched full product text for office=%s pil=%s (len=%d)",
-                            parsed.office, parsed.pil_code, len(full_text),
-                        )
-
                 stored = await message_processor.process(parsed)
                 if stored:
                     self._messages_count += 1
-                    if parsed.source == "nwws" and parsed.wmo_heading is None:
-                        logger.info(
-                            "Stored NWWS notification for office=%s pil=%s (text length=%d)",
-                            parsed.office, parsed.pil_code, len(parsed.product_text),
-                        )
+                    logger.info(
+                        "Stored NWWS message: pil=%s office=%s len=%d",
+                        parsed.pil_code, parsed.office, len(parsed.product_text),
+                    )
                 else:
                     logger.debug("NWWS-OI message not stored (duplicate?): pil=%s", parsed.pil_code)
             else:
-                logger.debug("NWWS-OI message not parsed (no pil/wmo?): %s", body[:80].replace('\n', ' '))
+                logger.debug("NWWS-OI message not parsed: %s", body[:80].replace('\n', ' '))
         except Exception:
             logger.exception("Error processing NWWS message")
 
     async def on_groupchat_presence(self, prs):
         pass  # Presence flood on join; handled by xep_0045 internally
 
-    # NWWS-OI notification formats:
-    # "KBIS issues Severe Weather Statement (SVS) valid 2026-06-29T21:27:00Z"
-    # "KWBC issues CAP valid 2026-06-29T21:24:00Z"
-    # "KLBF issued, valid 2026-06-29T21:28:00Z"
+    def _parse_nwws_extension(self, msg) -> MessageCreate | None:
+        """Parse the full NWS product from the <x xmlns='nwws-oi'> stanza extension.
+
+        NWWS-OI groupchat messages carry the full product text as the text content
+        of this element, along with metadata attributes:
+          ttaaii  - WMO collective identifier, e.g. "WHUS53"
+          cccc    - 4-letter ICAO office, e.g. "KDLH"
+          awipsid - AWIPS product ID, e.g. "SMWDLH"
+          issue   - issuance time ISO string
+        """
+        x_elem = msg.xml.find(_NWWS_OI_X_TAG)
+        if x_elem is None:
+            return None
+
+        product_text = (x_elem.text or "").strip()
+        if not product_text:
+            return None
+
+        ttaaii  = x_elem.get("ttaaii", "").strip()   # e.g. "WHUS53"
+        cccc    = x_elem.get("cccc",    "").strip()   # e.g. "KDLH"
+        awipsid = x_elem.get("awipsid", "").strip()   # e.g. "SMWDLH"
+
+        # Derive 3-letter office from the 4-letter ICAO code (strip leading K/P/T).
+        if len(cccc) == 4 and cccc[0].upper() in "KPTU":
+            office = cccc[1:].upper()
+        else:
+            office = cccc.upper() or "NWS"
+
+        # WMO heading is "TTAAII CCCC", e.g. "WHUS53 KDLH".
+        wmo_heading = f"{ttaaii} {cccc}".strip() if ttaaii and cccc else None
+
+        # Derive PIL code from awipsid by stripping the trailing 3-letter office.
+        # e.g. "SMWDLH" - "DLH" = "SMW"; "RR3ACR" - "ACR" = "RR3".
+        # For IDs where the suffix doesn't match the office (e.g. "WOU6"),
+        # extract the leading alpha characters instead.
+        pil_code = "UNK"
+        if awipsid:
+            if office and awipsid.upper().endswith(office.upper()):
+                pil_code = awipsid[: -len(office)].strip() or "UNK"
+            else:
+                m = re.match(r'^([A-Z]{2,4})', awipsid.upper())
+                pil_code = m.group(1) if m else awipsid[:3].upper()
+
+        return MessageCreate(
+            source="nwws",
+            wmo_heading=wmo_heading[:50] if wmo_heading else None,
+            awips_id=awipsid[:255] if awipsid else None,
+            pil_code=pil_code[:50],
+            office=office[:50],
+            product_text=product_text,
+        )
+
+    # Fallback patterns for messages without the nwws-oi extension element.
     _NWWS_WITH_PIL = re.compile(
         r"^([A-Z]{4})\s+issues?\s+.*?\(([A-Z]{2,6})\)", re.IGNORECASE
     )
@@ -157,6 +190,7 @@ class NWWSClient(slixmpp.ClientXMPP):
     _AWIPS_PATTERN = re.compile(r"^[A-Z]{3,4}$")
 
     def _parse_message(self, body: str) -> MessageCreate | None:
+        """Fallback parser for message bodies without the nwws-oi XML extension."""
         body = body.strip()
         if not body:
             return None
@@ -228,91 +262,6 @@ class NWWSClient(slixmpp.ClientXMPP):
             office=office[:50],
             product_text=body,
         )
-
-    async def _fetch_full_product(self, office: str, pil_code: str, body: str) -> str | None:
-        """Fetch the full product text from the NWS API.
-
-        Uses GET /products/types/{PIL}/locations/{OFFICE} to find the most
-        recent matching product, then fetches the full productText via
-        GET /products/{id}.  The plain /products endpoint does not support
-        time-range filtering and returns 400.
-        """
-        m = re.search(
-            r'valid\s+(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z', body, re.IGNORECASE,
-        )
-        valid_dt = None
-        if m:
-            try:
-                valid_dt = datetime.fromisoformat(m.group(1) + "+00:00")
-            except Exception:
-                pass
-
-        # The NWS /products/types/{PIL}/locations/{OFFICE} endpoint uses the
-        # 3-letter location code (e.g. "JAN"), not the 4-letter ICAO ("KJAN").
-        # The office field is already stored as 3-letter in _parse_message.
-        office_upper = office.upper()
-        pil_upper = pil_code.upper()
-
-        settings = get_settings()
-        headers = {"User-Agent": settings.api_user_agent}
-
-        try:
-            async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
-                # Step 1: get the list of recent products of this type from this office.
-                url = f"{NWS_API_BASE}/products/types/{pil_upper}/locations/{office_upper}"
-                resp = await client.get(url)
-                if resp.status_code != 200:
-                    logger.debug(
-                        "NWS API product list failed: office=%s pil=%s status=%s",
-                        office_upper, pil_upper, resp.status_code,
-                    )
-                    return None
-
-                graph = resp.json().get("@graph", [])
-                if not graph:
-                    logger.debug(
-                        "NWS API returned empty product list for office=%s pil=%s",
-                        office_upper, pil_upper,
-                    )
-                    return None
-
-                # Pick the product whose issuance time is closest to our valid time.
-                # If we have no valid time, just take the first (most recent) entry.
-                product_id = graph[0].get("id")
-                if valid_dt and len(graph) > 1:
-                    best = None
-                    best_delta = None
-                    for item in graph:
-                        iso = item.get("issuanceTime", "")
-                        try:
-                            item_dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-                            delta = abs((item_dt - valid_dt).total_seconds())
-                            if best_delta is None or delta < best_delta:
-                                best_delta = delta
-                                best = item.get("id")
-                        except Exception:
-                            continue
-                    if best:
-                        product_id = best
-
-                if not product_id:
-                    return None
-
-                # Step 2: fetch the individual product to get productText.
-                resp2 = await client.get(f"{NWS_API_BASE}/products/{product_id}")
-                if resp2.status_code != 200:
-                    logger.debug(
-                        "NWS API individual product fetch failed: id=%s status=%s",
-                        product_id, resp2.status_code,
-                    )
-                    return None
-
-                product_text = resp2.json().get("productText", "")
-                return product_text if product_text else None
-
-        except Exception:
-            logger.exception("Error fetching full product text from NWS API")
-            return None
 
     def on_disconnected(self, event):
         self._connected = False
