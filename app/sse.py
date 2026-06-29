@@ -13,13 +13,11 @@ class SSEBroadcaster:
     def subscribe(self) -> asyncio.Queue:
         queue: asyncio.Queue = asyncio.Queue(maxsize=256)
         self._clients.append(queue)
-        logger.debug("SSE client subscribed, total: %d", len(self._clients))
         return queue
 
     def unsubscribe(self, queue: asyncio.Queue):
         if queue in self._clients:
             self._clients.remove(queue)
-            logger.debug("SSE client unsubscribed, total: %d", len(self._clients))
 
     async def broadcast_message(self, message: Message):
         data = json.dumps({

@@ -99,8 +99,6 @@ class NWWSClient(slixmpp.ClientXMPP):
         if not body:
             return
 
-        logger.debug("NWWS-OI message body: %s", body[:120].replace('\n', ' '))
-
         try:
             # Primary: extract the full product from the <x xmlns="nwws-oi"> extension.
             parsed = self._parse_nwws_extension(msg)
@@ -116,10 +114,6 @@ class NWWSClient(slixmpp.ClientXMPP):
                         "Stored NWWS message: pil=%s office=%s len=%d",
                         parsed.pil_code, parsed.office, len(parsed.product_text),
                     )
-                else:
-                    logger.debug("NWWS-OI message not stored (duplicate?): pil=%s", parsed.pil_code)
-            else:
-                logger.debug("NWWS-OI message not parsed: %s", body[:80].replace('\n', ' '))
         except Exception:
             logger.exception("Error processing NWWS message")
 

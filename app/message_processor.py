@@ -16,7 +16,6 @@ class MessageProcessor:
         Returns True if the message was stored.
         """
         if not await filter_engine.should_store(msg):
-            logger.debug("Message filtered out: pil=%s office=%s", msg.pil_code, msg.office)
             return False
 
         pool = get_pool()
@@ -41,9 +40,6 @@ class MessageProcessor:
                         "wmo_heading = $2 WHERE id = $3",
                         new_text, new_wmo, existing["id"],
                     )
-                    logger.debug("Upgraded awips_id-matched message %s to nwws", existing["id"])
-                else:
-                    logger.debug("Duplicate skipped (awips_id=%s deleted=%s)", msg.awips_id, existing["is_deleted"])
                 return False
 
         # --- Dedup by wmo_heading (cross-source: NWWS vs API for same product) ---
@@ -67,9 +63,6 @@ class MessageProcessor:
                         msg.awips_id,
                         existing_wmo["id"],
                     )
-                    logger.debug("Upgraded wmo_heading-matched message %s api→nwws", existing_wmo["id"])
-                else:
-                    logger.debug("Duplicate skipped (wmo_heading=%s)", msg.wmo_heading)
                 return False
 
         row = await pool.fetchrow(

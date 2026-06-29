@@ -28,7 +28,6 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-logging.getLogger("app.nwws_client").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 _start_time = time.time()
