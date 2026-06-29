@@ -34,6 +34,7 @@ class NWWSClient(slixmpp.ClientXMPP):
 
         self.register_plugin("xep_0045")
         self.register_plugin("xep_0199")
+        self._configure_keepalive()
         self.add_event_handler("session_start", self.on_session_start)
         self.add_event_handler("groupchat_message", self.on_groupchat_message)
         self.add_event_handler("disconnected", self.on_disconnected)
@@ -48,13 +49,28 @@ class NWWSClient(slixmpp.ClientXMPP):
         self._running = False
         self._connect_event = asyncio.Event()
 
+    def _configure_keepalive(self):
+        """Configure XMPP ping keepalive for different slixmpp API versions."""
+        try:
+            xep_0199 = self.plugin.get("xep_0199")
+            if xep_0199 is None:
+                return
+            
+            # Try different API approaches
+            if hasattr(xep_0199, 'settings') and isinstance(xep_0199.settings, dict):
+                xep_0199.settings['send_keepalive'] = True
+                xep_0199.settings['keepalive_interval'] = 30
+            elif hasattr(xep_0199, 'keepalive'):
+                xep_0199.keepalive = True
+        except Exception as e:
+            logger.warning(f"Could not configure keepalive: {e}")
+
     async def on_session_start(self, event):
         logger.info("NWWS-OI session started, joining MUC room")
         self._connected = True
         self._reconnect_delay = 5
         self._connect_event.set()
         self.plugin["xep_0045"].join_muc(NWWS_MUC, self.boundjid.user)
-        await self.plugin["xep_0199"].keepalive(timeout=60)
 
     async def on_groupchat_message(self, msg):
         if msg["mucnick"] == self.boundjid.user:
