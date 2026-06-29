@@ -209,6 +209,9 @@ class NWWSClient(slixmpp.ClientXMPP):
         # its own line at the very top of the element text.
         product_text = re.sub(r'^\d{1,6}\s*\n+', '', product_text)
 
+        # Remove blank lines between text lines (collapse double-spacing to single-spacing).
+        product_text = re.sub(r'\n\n', '\n', product_text)
+
         ttaaii  = x_elem.get("ttaaii", "").strip()   # e.g. "WHUS53"
         cccc    = x_elem.get("cccc",    "").strip()   # e.g. "KDLH"
         awipsid = x_elem.get("awipsid", "").strip()   # e.g. "SMWDLH"
