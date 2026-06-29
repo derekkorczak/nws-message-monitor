@@ -17,17 +17,18 @@ class NWWSClient(slixmpp.ClientXMPP):
     def __init__(self, username: str, password: str):
         super().__init__(username, password)
 
-        self.ssl_version = "tls"
         self.force_starttls = True
         self.use_srv = False
         self.use_ssl = False
         self.port = NWWS_PORT
 
-        self.register_plugin("xep_0045")  # MUC
+        self.register_plugin("xep_0045")
+        self.register_plugin("xep_0199")
         self.add_event_handler("session_start", self.on_session_start)
         self.add_event_handler("groupchat_message", self.on_groupchat_message)
         self.add_event_handler("disconnected", self.on_disconnected)
         self.add_event_handler("connection_failed", self.on_connection_failed)
+        self.add_event_handler("failed_auth", self.on_failed_auth)
 
         self._connected = False
         self._reconnect_delay = 5
@@ -35,11 +36,13 @@ class NWWSClient(slixmpp.ClientXMPP):
         self._messages_count = 0
         self._on_disconnect = None
         self._running = False
+        self._connect_event = asyncio.Event()
 
     async def on_session_start(self, event):
         logger.info("NWWS-OI session started, joining MUC room")
         self._connected = True
         self._reconnect_delay = 5
+        self._connect_event.set()
         self.get_plugin("xep_0045").join_muc(NWWS_MUC, self.boundjid.user)
         await self.plugin["xep_0199"].keepalive(timeout=60)
 
@@ -122,11 +125,18 @@ class NWWSClient(slixmpp.ClientXMPP):
 
     def on_disconnected(self, event):
         self._connected = False
-        logger.warning("NWWS-OI disconnected")
+        self._connect_event.set()
+        logger.warning("NWWS-OI disconnected: %s", event)
 
     def on_connection_failed(self, event):
         self._connected = False
-        logger.warning("NWWS-OI connection failed")
+        self._connect_event.set()
+        logger.warning("NWWS-OI connection failed: %s", event)
+
+    def on_failed_auth(self, event):
+        self._connected = False
+        self._connect_event.set()
+        logger.warning("NWWS-OI auth failed: %s", event)
 
     @property
     def is_connected(self) -> bool:
@@ -175,7 +185,14 @@ class NWWSManager:
         while self._running:
             try:
                 self._client = NWWSClient(settings.nwws_username, settings.nwws_password)
-                await self._client.connect()
+                connected = await self._client.connect()
+                if not connected:
+                    logger.warning("NWWS-OI connect() returned False")
+                else:
+                    try:
+                        await asyncio.wait_for(self._client._connect_event.wait(), timeout=30)
+                    except asyncio.TimeoutError:
+                        logger.warning("NWWS-OI connection timed out after 30s")
                 while self._running and self._client._connected:
                     await asyncio.sleep(1)
             except Exception:
