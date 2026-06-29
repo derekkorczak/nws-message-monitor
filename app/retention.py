@@ -2,6 +2,7 @@ import asyncio
 import logging
 from app.config import get_settings
 from app.database import get_pool
+from app.sse import broadcaster
 
 logger = logging.getLogger(__name__)
 
@@ -40,18 +41,22 @@ class RetentionCleanup:
         settings = get_settings()
         pool = get_pool()
 
-        expired = await pool.execute(
-            "DELETE FROM messages WHERE expires_at IS NOT NULL AND expires_at < NOW()"
+        expired_rows = await pool.fetch(
+            "DELETE FROM messages WHERE expires_at IS NOT NULL AND expires_at < NOW() RETURNING id"
         )
+        expired_ids = [str(r["id"]) for r in expired_rows]
 
         deleted = await pool.execute(
             "DELETE FROM messages WHERE is_deleted = TRUE AND deleted_at < NOW() - INTERVAL '7 days'"
         )
 
-        total = int(expired.split()[-1]) + int(deleted.split()[-1])
+        if expired_ids:
+            await broadcaster.broadcast_messages_expired(expired_ids)
+
+        total = len(expired_ids) + int(deleted.split()[-1])
         if total > 0:
             logger.info("Retention cleanup: removed %d expired, %d deleted records",
-                        int(expired.split()[-1]), int(deleted.split()[-1]))
+                        len(expired_ids), int(deleted.split()[-1]))
         return total
 
 

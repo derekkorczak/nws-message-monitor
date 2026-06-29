@@ -32,6 +32,10 @@ class SSEBroadcaster:
         data = json.dumps({"event": "filters_updated", "data": {}})
         await self._send(data)
 
+    async def broadcast_messages_expired(self, message_ids: list[str]):
+        data = json.dumps({"event": "messages_expired", "data": {"ids": message_ids}})
+        await self._send(data)
+
     async def broadcast_status(self, status: dict):
         data = json.dumps({"event": "status_update", "data": status})
         await self._send(data)

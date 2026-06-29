@@ -265,12 +265,13 @@ body {
     margin-bottom: 0.25rem;
     border-radius: var(--radius);
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.15s, opacity 0.5s, max-height 0.5s, margin 0.5s, padding 0.5s;
     border-left: 3px solid transparent;
 }
 
 .message-item:hover { background: var(--bg-hover); }
 .message-item.new { border-left-color: var(--primary); background: var(--bg-card); }
+.message-item.expired { opacity: 0; max-height: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; overflow: hidden; }
 
 .message-time {
     font-size: 0.75rem;

@@ -140,6 +140,37 @@
         `;
     }
 
+    function removeExpiredFromDOM(ids) {
+        const idSet = new Set(ids);
+        const items = document.querySelectorAll(".message-item");
+        let count = 0;
+        items.forEach((el) => {
+            if (idSet.has(el.dataset.id)) {
+                el.classList.add("expired");
+                count++;
+            }
+        });
+        setTimeout(() => {
+            state.messages = state.messages.filter((m) => !idSet.has(m.id));
+            state.totalMessages -= count;
+            renderMessages();
+            renderPagination();
+        }, 500);
+    }
+
+    function sweepExpired() {
+        const now = new Date().getTime();
+        const expiredIds = [];
+        state.messages.forEach((msg) => {
+            if (msg.expires_at && new Date(msg.expires_at).getTime() < now) {
+                expiredIds.push(msg.id);
+            }
+        });
+        if (expiredIds.length > 0) {
+            removeExpiredFromDOM(expiredIds);
+        }
+    }
+
     function showModal(id) {
         $(`#${id}`).classList.add("active");
     }
@@ -492,6 +523,9 @@
                             setTimeout(() => firstItem.classList.remove("new"), 3000);
                         }
                         break;
+                    case "messages_expired":
+                        removeExpiredFromDOM(msg.data.ids);
+                        break;
                     case "filters_updated":
                         app.loadFilters();
                         break;
@@ -573,6 +607,7 @@
         loadMessages();
         connectSSE();
         setInterval(() => app.pollStatus(), 30000);
+        setInterval(sweepExpired, 60000);
         app.pollStatus();
     }
 

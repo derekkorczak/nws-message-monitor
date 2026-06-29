@@ -75,6 +75,7 @@ async def list_messages(
     params = []
     idx = 1
 
+    conditions.append("(expires_at IS NULL OR expires_at >= NOW())")
     if not include_deleted:
         conditions.append("is_deleted = FALSE")
     if pil_code:
