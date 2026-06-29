@@ -53,7 +53,7 @@ class NWWSClient(slixmpp.ClientXMPP):
         self._connected = True
         self._reconnect_delay = 5
         self._connect_event.set()
-        self.get_plugin("xep_0045").join_muc(NWWS_MUC, self.boundjid.user)
+        self.plugin["xep_0045"].join_muc(NWWS_MUC, self.boundjid.user)
         await self.plugin["xep_0199"].keepalive(timeout=60)
 
     async def on_groupchat_message(self, msg):
