@@ -88,6 +88,7 @@ class APIPoller:
                 self._alerts_seen.pop()
 
         if new_count:
+            self._messages_count += new_count
             logger.info("API poll: %d new alerts of %d active", new_count, len(features))
 
     def _feature_to_message(self, feature: dict) -> MessageCreate | None:
