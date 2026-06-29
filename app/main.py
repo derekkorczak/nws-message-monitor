@@ -159,8 +159,9 @@ async def delete_message(message_id: UUID):
 @app.get("/api/stream")
 async def sse_stream(request: Request):
     queue = broadcaster.subscribe()
-    try:
-        async def event_generator():
+
+    async def event_generator():
+        try:
             yield f"data: {__import__('json').dumps({'event': 'connected', 'data': {}})}\n\n"
             try:
                 while True:
@@ -173,9 +174,10 @@ async def sse_stream(request: Request):
                         yield f"data: {__import__('json').dumps({'event': 'ping', 'data': {}})}\n\n"
             except asyncio.CancelledError:
                 pass
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
-    finally:
-        broadcaster.unsubscribe(queue)
+        finally:
+            broadcaster.unsubscribe(queue)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @app.get("/api/filters")
