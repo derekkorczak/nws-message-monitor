@@ -1,7 +1,9 @@
 import asyncio
 import logging
 import re
+import ssl
 import slixmpp
+from slixmpp.xmlstream import XMLStream
 from app.config import get_settings
 from app.models import MessageCreate
 from app.message_processor import message_processor
@@ -17,10 +19,18 @@ class NWWSClient(slixmpp.ClientXMPP):
     def __init__(self, username: str, password: str):
         super().__init__(username, password)
 
-        self.address = (NWWS_HOST, NWWS_PORT)
+        self.ssl_context.check_hostname = False
+        self.ssl_context.verify_mode = ssl.CERT_NONE
+
+        for attr in ("enable_direct_tls", "enable_starttls", "enable_plaintext"):
+            if hasattr(self, attr):
+                setattr(self, "enable_direct_tls", True)
+                setattr(self, "enable_starttls", False)
+                setattr(self, "enable_plaintext", False)
+                break
+
         self.use_ssl = True
         self.force_starttls = False
-        self.use_srv = False
 
         self.register_plugin("xep_0045")
         self.register_plugin("xep_0199")
@@ -138,12 +148,8 @@ class NWWSClient(slixmpp.ClientXMPP):
         self._connect_event.set()
         logger.warning("NWWS-OI auth failed: %s", event)
 
-    async def connect(self):
-        return await super().connect(
-            (NWWS_HOST, NWWS_PORT),
-            use_ssl=True,
-            force_starttls=False,
-        )
+    def connect(self):
+        return XMLStream.connect(self, NWWS_HOST, NWWS_PORT, use_ssl=True, force_starttls=False)
 
     @property
     def is_connected(self) -> bool:
@@ -192,14 +198,11 @@ class NWWSManager:
         while self._running:
             try:
                 self._client = NWWSClient(settings.nwws_username, settings.nwws_password)
-                connected = await self._client.connect()
-                if not connected:
-                    logger.warning("NWWS-OI connect() returned False")
-                else:
-                    try:
-                        await asyncio.wait_for(self._client._connect_event.wait(), timeout=30)
-                    except asyncio.TimeoutError:
-                        logger.warning("NWWS-OI connection timed out after 30s")
+                self._client.connect()
+                try:
+                    await asyncio.wait_for(self._client._connect_event.wait(), timeout=30)
+                except asyncio.TimeoutError:
+                    logger.warning("NWWS-OI connection timed out after 30s")
                 while self._running and self._client._connected:
                     await asyncio.sleep(1)
             except Exception:
