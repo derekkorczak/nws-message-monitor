@@ -24,8 +24,8 @@ class MessageProcessor:
         if msg.awips_id:
             existing = await pool.fetchval(
                 "SELECT id FROM messages WHERE awips_id = $1 "
-                "AND received_at > NOW() - INTERVAL '5 minutes' "
-                "AND is_deleted = FALSE",
+                "AND is_deleted = FALSE "
+                "AND COALESCE(expires_at, received_at + INTERVAL '1 hour') > NOW()",
                 msg.awips_id,
             )
             if existing:
