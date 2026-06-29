@@ -13,6 +13,7 @@
         filterOptions: [],
         selectedValues: [],
         filterSearchQuery: "",
+        offices: {},
     };
 
     const $ = (sel) => document.querySelector(sel);
@@ -70,6 +71,13 @@
         return div.innerHTML;
     }
 
+    function getOfficeDisplay(officeCode) {
+        if (state.offices[officeCode]) {
+            return `${officeCode} - ${state.offices[officeCode]}`;
+        }
+        return officeCode;
+    }
+
     async function loadMessages(page = 1) {
         state.currentPage = page;
         const params = new URLSearchParams({
@@ -105,7 +113,7 @@
                 <div class="message-info">
                     <div class="message-head">
                         <span class="message-pil">${escapeHtml(msg.pil_code)}</span>
-                        <span class="message-office">${escapeHtml(msg.office)}</span>
+                        <span class="message-office">${escapeHtml(getOfficeDisplay(msg.office))}</span>
                         <span class="message-source ${escapeHtml(msg.source)}">${escapeHtml(msg.source)}</span>
                     </div>
                     <div class="message-headline">${escapeHtml(getHeadline(msg.product_text))}</div>
@@ -146,11 +154,11 @@
         async showMessage(id) {
             try {
                 const msg = await api.get(`/api/messages/${id}`);
-                $("#modal-title").textContent = `${msg.pil_code} - ${msg.office}`;
+                $("#modal-title").textContent = `${msg.pil_code} - ${getOfficeDisplay(msg.office)}`;
                 $("#modal-meta").innerHTML = `
                     <dt>Source</dt><dd>${escapeHtml(msg.source)}</dd>
                     <dt>PIL Code</dt><dd>${escapeHtml(msg.pil_code)}</dd>
-                    <dt>Office</dt><dd>${escapeHtml(msg.office)}</dd>
+                    <dt>Office</dt><dd>${escapeHtml(getOfficeDisplay(msg.office))}</dd>
                     <dt>WMO Heading</dt><dd>${escapeHtml(msg.wmo_heading || "N/A")}</dd>
                     <dt>AWIPS ID</dt><dd>${escapeHtml(msg.awips_id || "N/A")}</dd>
                     <dt>Received</dt><dd>${formatTime(msg.received_at)}</dd>
@@ -241,9 +249,12 @@
             const countEl = $("#filter-values-count");
 
             const search = state.filterSearchQuery.toLowerCase();
-            const filtered = state.filterOptions.filter((opt) =>
-                opt.toLowerCase().includes(search)
-            );
+            const filtered = state.filterOptions.filter((opt) => {
+                const displayText = $("#filter-type").value === "office" 
+                    ? `${opt} ${getOfficeDisplay(opt)}`.toLowerCase()
+                    : opt.toLowerCase();
+                return displayText.includes(search);
+            });
 
             if (filtered.length === 0) {
                 optionsEl.innerHTML = state.filterOptions.length === 0
@@ -252,10 +263,13 @@
             } else {
                 optionsEl.innerHTML = filtered.map((opt) => {
                     const checked = state.selectedValues.includes(opt) ? "checked" : "";
+                    const displayText = $("#filter-type").value === "office" 
+                        ? getOfficeDisplay(opt)
+                        : opt;
                     return `
                     <label class="multi-select-option">
                         <input type="checkbox" ${checked} onchange="app.toggleValue('${escapeHtml(opt).replace(/'/g, "\\'")}')">
-                        <span>${escapeHtml(opt)}</span>
+                        <span>${escapeHtml(displayText)}</span>
                     </label>
                 `}).join("");
             }
@@ -263,12 +277,16 @@
             if (state.selectedValues.length === 0) {
                 pillsEl.innerHTML = "";
             } else {
-                pillsEl.innerHTML = state.selectedValues.map((val) => `
+                pillsEl.innerHTML = state.selectedValues.map((val) => {
+                    const displayText = $("#filter-type").value === "office" 
+                        ? getOfficeDisplay(val)
+                        : val;
+                    return `
                     <span class="multi-select-pill">
-                        ${escapeHtml(val)}
+                        ${escapeHtml(displayText)}
                         <span class="multi-select-pill-x" onclick="app.removeValue('${escapeHtml(val).replace(/'/g, "\\'")}')">&times;</span>
                     </span>
-                `).join("");
+                `}).join("");
             }
 
             countEl.textContent = `${state.selectedValues.length} selected`;
@@ -496,7 +514,13 @@
         };
     }
 
-    function init() {
+    async function init() {
+        try {
+            state.offices = await api.get("/api/offices");
+        } catch (err) {
+            console.error("Failed to load offices:", err);
+        }
+
         $("#settings-btn").addEventListener("click", () => app.openSettings());
         $("#add-filter-btn").addEventListener("click", () => app.openAddFilter());
         $("#export-btn").addEventListener("click", () => app.exportFilters());

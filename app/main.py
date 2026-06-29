@@ -22,6 +22,7 @@ from app.sse import broadcaster
 from app.api_poller import api_poller
 from app.nwws_client import nwws_manager
 from app.retention import retention
+from app.nws_offices import NWS_OFFICES
 
 logging.basicConfig(
     level=logging.INFO,
@@ -298,10 +299,7 @@ async def get_filter_options(filter_type: str):
         )
         return [r["pil_code"] for r in rows]
     elif filter_type == "office":
-        rows = await pool.fetch(
-            "SELECT DISTINCT office FROM messages ORDER BY office"
-        )
-        return [r["office"] for r in rows]
+        return sorted(NWS_OFFICES.keys())
     elif filter_type == "zone":
         # Query NWS zones API for all available zones
         zones = set()
@@ -368,6 +366,11 @@ async def get_filter_options(filter_type: str):
         
         return sorted(locations)
     return []
+
+
+@app.get("/api/offices")
+async def get_offices():
+    return NWS_OFFICES
 
 
 @app.post("/api/filters/import")

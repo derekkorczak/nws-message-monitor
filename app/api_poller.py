@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import json
 from datetime import datetime, timezone
 import httpx
 from app.config import get_settings
@@ -14,13 +13,13 @@ NWS_API_BASE = "https://api.weather.gov"
 
 class APIPoller:
     def __init__(self):
+        self._task = None
         self._running = False
-        self._task: asyncio.Task | None = None
-        self._last_poll: datetime | None = None
-        self._last_error: str | None = None
-        self._connected = False
-        self._alerts_seen: set[str] = set()
-        self._messages_count = 0
+        self._status = {
+            "connected": False,
+            "last_poll": None,
+            "messages_count": 0,
+        }
 
     async def start(self):
         self._running = True
@@ -38,109 +37,81 @@ class APIPoller:
         logger.info("API poller stopped")
 
     async def _poll_loop(self):
-        settings = get_settings()
-        async with httpx.AsyncClient(
-            headers={"User-Agent": settings.api_user_agent},
-            timeout=30.0,
-        ) as client:
-            while self._running:
-                try:
-                    await self._poll_once(client)
-                    self._connected = True
-                    self._last_error = None
-                except Exception as exc:
-                    self._connected = False
-                    self._last_error = str(exc)
-                    logger.exception("API poll failed")
-
-                try:
-                    await asyncio.sleep(settings.api_poll_interval)
-                except asyncio.CancelledError:
-                    break
-
-    async def _poll_once(self, client: httpx.AsyncClient):
-        resp = await client.get(f"{NWS_API_BASE}/alerts/active")
-        resp.raise_for_status()
-        data = resp.json()
-
-        self._last_poll = datetime.now(timezone.utc)
-
-        features = data.get("features", [])
-        new_count = 0
-
-        for feature in features:
-            alert_id = feature.get("id", "")
-            if alert_id in self._alerts_seen:
-                continue
-            self._alerts_seen.add(alert_id)
-
-            msg = self._feature_to_message(feature)
-            if msg and await message_processor.process(msg):
-                new_count += 1
-
-        keep = 1000
-        if len(self._alerts_seen) > keep:
-            excess = len(self._alerts_seen) - keep
-            for _ in range(excess):
-                self._alerts_seen.pop()
-
-        if new_count:
-            self._messages_count += new_count
-            logger.info("API poll: %d new alerts of %d active", new_count, len(features))
-
-    def _feature_to_message(self, feature: dict) -> MessageCreate | None:
-        props = feature.get("properties", {})
-        event = props.get("event", "UNKNOWN")
-        sender = props.get("sender", "NWS")
-        headline = props.get("headline", event)
-        expires_str = props.get("expires")
-        expires_at = None
-        if expires_str:
+        while self._running:
             try:
-                expires_at = datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
-            except ValueError:
+                await self._poll_once()
+            except Exception:
+                logger.exception("API poller error")
+            settings = get_settings()
+            await asyncio.sleep(settings.api_poll_interval)
+
+    async def _poll_once(self):
+        settings = get_settings()
+        headers = {"User-Agent": settings.api_user_agent}
+
+        async with httpx.AsyncClient(headers=headers, timeout=30.0) as client:
+            resp = await client.get(f"{NWS_API_BASE}/alerts/active")
+            if resp.status_code != 200:
+                logger.warning("API poll failed: %s", resp.status_code)
+                self._status["connected"] = False
+                return
+
+            self._status["connected"] = True
+            self._status["last_poll"] = datetime.now(timezone.utc).isoformat()
+
+            data = resp.json()
+            features = data.get("features", [])
+
+            for feature in features:
+                props = feature.get("properties", {})
+                await self._process_alert(props)
+
+    async def _process_alert(self, alert: dict):
+        alert_id = alert.get("id")
+        if not alert_id:
+            return
+
+        event = alert.get("event", "Unknown")
+        headline = alert.get("headline", "")
+        description = alert.get("description", "")
+        area_desc = alert.get("areaDesc", "")
+        severity = alert.get("severity", "")
+        urgency = alert.get("urgency", "")
+        certainty = alert.get("certainty", "")
+        sender = alert.get("senderName", "")
+
+        office = alert.get("issuingOffice", "NWS")
+        if not office:
+            office = "NWS"
+
+        product_text = f"{event}\n{headline}\n\n{description}\n\nArea: {area_desc}\nSeverity: {severity}\nUrgency: {urgency}\nCertainty: {certainty}\nSender: {sender}"
+
+        pil_code = event[:3].upper() if len(event) >= 3 else event.upper()
+
+        expires_at = None
+        if alert.get("expires"):
+            try:
+                expires_at = datetime.fromisoformat(alert["expires"].replace("Z", "+00:00"))
+            except Exception:
                 pass
 
-        geometry = feature.get("geometry")
-        if geometry:
-            summary = f"ALERT: {headline}\n\nEvent: {event}\nSender: {sender}\n"
-            for k in ("severity", "urgency", "certainty", "responseTypes"):
-                if k in props:
-                    summary += f"{k}: {props[k]}\n"
-            if props.get("description"):
-                summary += f"\nDescription:\n{props['description']}\n"
-            if props.get("instruction"):
-                summary += f"\nInstruction:\n{props['instruction']}\n"
-            if props.get("areaDesc"):
-                summary += f"\nAreas: {props['areaDesc']}\n"
-            if props.get("parameter"):
-                summary += f"\nParameters:\n{json.dumps(props['parameter'], indent=2)}\n"
-            if geometry:
-                summary += f"\nGeometry:\n{json.dumps(geometry)}\n"
-            product_text = summary
-        else:
-            product_text = headline
-
-        office = sender.split("/")[-1] if "/" in sender else sender[:10]
-
-        return MessageCreate(
+        msg = MessageCreate(
             source="api",
             wmo_heading=None,
-            awips_id=props.get("id", None),
-            pil_code=event.upper().replace(" ", "_")[:10],
-            office=office[:10],
+            awips_id=alert_id[:255],
+            pil_code=pil_code[:50],
+            office=office[:50],
             product_text=product_text,
             expires_at=expires_at,
         )
 
+        stored = await message_processor.process(msg)
+        if stored:
+            self._status["messages_count"] += 1
+
     @property
     def status(self) -> dict:
-        return {
-            "connected": self._connected,
-            "last_poll": self._last_poll.isoformat() if self._last_poll else None,
-            "messages_count": self._messages_count,
-            "error": self._last_error,
-        }
+        return self._status
 
 
 api_poller = APIPoller()
