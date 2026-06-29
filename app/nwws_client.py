@@ -53,11 +53,7 @@ class NWWSClient(slixmpp.ClientXMPP):
     def _configure_keepalive(self):
         """Configure XMPP ping keepalive for different slixmpp API versions."""
         try:
-            xep_0199 = self.plugin.get("xep_0199")
-            if xep_0199 is None:
-                return
-            
-            # Try different API approaches
+            xep_0199 = self.plugin["xep_0199"]
             if hasattr(xep_0199, 'settings') and isinstance(xep_0199.settings, dict):
                 xep_0199.settings['send_keepalive'] = True
                 xep_0199.settings['keepalive_interval'] = 30
@@ -194,7 +190,7 @@ class NWWSClient(slixmpp.ClientXMPP):
     def connect(self):
         if hasattr(self, 'init_plugins'):
             self.init_plugins()
-        logger.info(f"Connecting to NWWS-OI at {NWWS_HOST}:{NWWS_PORT} (use_ssl={self.use_ssl}, starttls={self.disable_starttls})")
+        logger.info(f"Connecting to NWWS-OI at {NWWS_HOST}:{NWWS_PORT}")
         return XMLStream.connect(self, NWWS_HOST, NWWS_PORT)
 
     @property
