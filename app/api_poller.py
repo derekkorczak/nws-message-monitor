@@ -118,6 +118,7 @@ class APIPoller:
             pil_code=pil_code[:50],
             office=office[:50],
             product_text=product_text,
+            severity=severity if severity else None,
             expires_at=expires_at,
         )
 

@@ -100,6 +100,11 @@
         });
     }
 
+    function getSeverityClass(severity) {
+        if (!severity) return "unknown";
+        return severity.toLowerCase();
+    }
+
     function getHeadline(text) {
         if (!text) return "No content";
         const lines = text.split("\n").filter((l) => l.trim());
@@ -153,8 +158,13 @@
             const expiryBadge = rel
                 ? `<div class="message-expiry expiry-${rel.state}">${escapeHtml(rel.text)}</div>`
                 : "";
+            const severityClass = getSeverityClass(msg.severity);
+            const severityBadge = msg.severity
+                ? `<span class="message-severity severity-${severityClass}">${escapeHtml(msg.severity)}</span>`
+                : "";
+            const itemSeverityClass = msg.severity ? `severity-${severityClass}` : "";
             return `
-            <div class="message-item" data-id="${msg.id}" onclick="app.showMessage('${msg.id}')">
+            <div class="message-item ${itemSeverityClass}" data-id="${msg.id}" onclick="app.showMessage('${msg.id}')">
                 <div class="message-time">
                     ${formatTime(msg.received_at)}
                     ${expiryBadge}
@@ -164,6 +174,7 @@
                         <span class="message-pil">${escapeHtml(msg.pil_code)}</span>
                         <span class="message-office">${escapeHtml(getOfficeDisplay(msg.office))}</span>
                         <span class="message-source ${escapeHtml(msg.source)}">${escapeHtml(msg.source)}</span>
+                        ${severityBadge}
                     </div>
                     <div class="message-headline">${escapeHtml(getHeadline(msg.product_text))}</div>
                 </div>
@@ -236,10 +247,14 @@
             try {
                 const msg = await api.get(`/api/messages/${id}`);
                 $("#modal-title").textContent = `${msg.pil_code} - ${getOfficeDisplay(msg.office)}`;
+                const severityHtml = msg.severity
+                    ? `<dt>Severity</dt><dd><span class="message-severity severity-${getSeverityClass(msg.severity)}">${escapeHtml(msg.severity)}</span></dd>`
+                    : "";
                 $("#modal-meta").innerHTML = `
                     <dt>Source</dt><dd>${escapeHtml(msg.source)}</dd>
                     <dt>PIL Code</dt><dd>${escapeHtml(msg.pil_code)}</dd>
                     <dt>Office</dt><dd>${escapeHtml(getOfficeDisplay(msg.office))}</dd>
+                    ${severityHtml}
                     <dt>WMO Heading</dt><dd>${escapeHtml(msg.wmo_heading || "N/A")}</dd>
                     <dt>AWIPS ID</dt><dd>${escapeHtml(msg.awips_id || "N/A")}</dd>
                     <dt>Received</dt><dd>${formatTime(msg.received_at)}</dd>

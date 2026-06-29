@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS messages (
     pil_code VARCHAR(50) NOT NULL,
     office VARCHAR(50) NOT NULL,
     product_text TEXT NOT NULL,
+    severity VARCHAR(20),
     is_deleted BOOLEAN DEFAULT FALSE,
     deleted_at TIMESTAMPTZ,
     expires_at TIMESTAMPTZ
@@ -45,3 +46,4 @@ ALTER TABLE messages ALTER COLUMN wmo_heading TYPE VARCHAR(50);
 ALTER TABLE messages ALTER COLUMN awips_id TYPE VARCHAR(255);
 ALTER TABLE messages ALTER COLUMN pil_code TYPE VARCHAR(50);
 ALTER TABLE messages ALTER COLUMN office TYPE VARCHAR(50);
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS severity VARCHAR(20);

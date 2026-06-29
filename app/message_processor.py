@@ -41,10 +41,10 @@ class MessageProcessor:
 
         row = await pool.fetchrow(
             "INSERT INTO messages (source, wmo_heading, awips_id, pil_code, office, "
-            "product_text, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7) "
+            "product_text, severity, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) "
             "RETURNING id, received_at",
             msg.source, msg.wmo_heading, msg.awips_id, msg.pil_code,
-            msg.office, msg.product_text, msg.expires_at,
+            msg.office, msg.product_text, msg.severity, msg.expires_at,
         )
 
         stored = Message(
@@ -56,6 +56,7 @@ class MessageProcessor:
             pil_code=msg.pil_code,
             office=msg.office,
             product_text=msg.product_text,
+            severity=msg.severity,
             is_deleted=False,
             deleted_at=None,
             expires_at=msg.expires_at,

@@ -10,6 +10,7 @@ class MessageCreate(BaseModel):
     pil_code: str
     office: str
     product_text: str
+    severity: str | None = None
     expires_at: datetime | None = None
 
 
@@ -22,6 +23,7 @@ class Message(BaseModel):
     pil_code: str
     office: str
     product_text: str
+    severity: str | None = None
     is_deleted: bool = False
     deleted_at: datetime | None = None
     expires_at: datetime | None = None
