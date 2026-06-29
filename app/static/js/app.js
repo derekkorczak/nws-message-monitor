@@ -105,10 +105,22 @@
         return severity.toLowerCase();
     }
 
-    function getHeadline(text) {
+    function getHeadline(text, source) {
         if (!text) return "No content";
         const lines = text.split("\n").filter((l) => l.trim());
-        return lines[0].substring(0, 120);
+        if (source === "nwws") {
+            // Skip the WMO heading (e.g. "WWUS53 KBIS 292230") and the AWIPS ID
+            // line (e.g. "SVSBIS") to surface the actual product title.
+            const wmoPattern = /^[A-Z]{4}\d{2}\s+\w{4}\s+\d{6}/i;
+            const awipsPattern = /^[A-Z0-9]{4,12}$/;
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!wmoPattern.test(trimmed) && !awipsPattern.test(trimmed)) {
+                    return trimmed.substring(0, 120);
+                }
+            }
+        }
+        return lines[0]?.substring(0, 120) || "No content";
     }
 
     function escapeHtml(str) {
@@ -176,7 +188,7 @@
                         <span class="message-source ${escapeHtml(msg.source)}">${escapeHtml(msg.source)}</span>
                         ${severityBadge}
                     </div>
-                    <div class="message-headline">${escapeHtml(getHeadline(msg.product_text))}</div>
+                    <div class="message-headline">${escapeHtml(getHeadline(msg.product_text, msg.source))}</div>
                 </div>
                 <div class="message-actions">
                     <button class="btn-icon" onclick="event.stopPropagation(); app.deleteMessage('${msg.id}')" title="Delete">&#10005;</button>

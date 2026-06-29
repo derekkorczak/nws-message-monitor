@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 import ssl
+from datetime import datetime, timezone
 
 import slixmpp
 from slixmpp.xmlstream import XMLStream
@@ -20,6 +21,68 @@ NWWS_MUC = "NWWS@conference.nwws-oi.weather.gov"
 # content is the full NWS product and whose attributes supply all metadata.
 _NWWS_OI_NS = "nwws-oi"
 _NWWS_OI_X_TAG = f"{{{_NWWS_OI_NS}}}x"
+
+# P-VTEC line: /k.aaa.cccc.pp.s.####.YYMMDDTHHMMz-YYMMDDTHHMMz/
+_PVTEC = re.compile(
+    r'/[OTX]\.([A-Z]{3})\.[A-Z0-9]{4}\.([A-Z]{2})\.([A-Z])\.\d{4}\.'
+    r'(\d{6}T\d{4})Z-(\d{6}T\d{4})Z/',
+    re.IGNORECASE,
+)
+
+# (phenomenon, significance) pairs that map to Extreme severity
+_VTEC_EXTREME = {
+    ("TO", "W"), ("TO", "A"),  # Tornado Warning/Watch
+    ("HU", "W"), ("HU", "A"),  # Hurricane Warning/Watch
+    ("TS", "W"), ("TS", "A"),  # Tropical Storm Warning/Watch
+    ("EW", "W"),               # Extreme Wind Warning
+}
+
+
+def _parse_vtec_time(ts: str) -> datetime | None:
+    """Parse VTEC timestamp 'YYMMDDTHHmm' to a UTC datetime."""
+    try:
+        if ts == "000000T0000":
+            return None
+        year = 2000 + int(ts[0:2])
+        month = int(ts[2:4])
+        day = int(ts[4:6])
+        hour = int(ts[7:9])
+        minute = int(ts[9:11])
+        return datetime(year, month, day, hour, minute, tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+
+def _parse_vtec(product_text: str) -> tuple[str | None, datetime | None]:
+    """Extract severity and expires_at from the first P-VTEC line in a product."""
+    m = _PVTEC.search(product_text)
+    if not m:
+        return None, None
+
+    action = m.group(1).upper()
+    ph = m.group(2).upper()
+    sig = m.group(3).upper()
+    end_ts = m.group(5)
+
+    # CAN/EXP actions mean the event is ending – no meaningful future expiry
+    expires_at = None
+    if action not in ("CAN", "EXP"):
+        expires_at = _parse_vtec_time(end_ts)
+
+    if (ph, sig) in _VTEC_EXTREME:
+        severity = "Extreme"
+    elif sig == "W":
+        severity = "Severe"
+    elif sig == "A":
+        severity = "Severe"
+    elif sig == "Y":
+        severity = "Moderate"
+    elif sig in ("S", "F", "N", "O"):
+        severity = "Minor"
+    else:
+        severity = None
+
+    return severity, expires_at
 
 
 class NWWSClient(slixmpp.ClientXMPP):
@@ -182,6 +245,8 @@ class NWWSClient(slixmpp.ClientXMPP):
                 m = re.match(r'^([A-Z]{2,4})', awipsid.upper())
                 pil_code = m.group(1) if m else awipsid[:3].upper()
 
+        severity, expires_at = _parse_vtec(product_text)
+
         return MessageCreate(
             source="nwws",
             wmo_heading=wmo_heading[:50] if wmo_heading else None,
@@ -189,6 +254,8 @@ class NWWSClient(slixmpp.ClientXMPP):
             pil_code=pil_code[:50],
             office=office[:50],
             product_text=product_text,
+            severity=severity,
+            expires_at=expires_at,
         )
 
     # Fallback patterns for messages without the nwws-oi extension element.
@@ -267,6 +334,8 @@ class NWWSClient(slixmpp.ClientXMPP):
         if not office:
             office = "NWS"
 
+        severity, expires_at = _parse_vtec(body)
+
         return MessageCreate(
             source="nwws",
             wmo_heading=wmo_heading[:50] if wmo_heading else None,
@@ -274,6 +343,8 @@ class NWWSClient(slixmpp.ClientXMPP):
             pil_code=pil_code[:50],
             office=office[:50],
             product_text=body,
+            severity=severity,
+            expires_at=expires_at,
         )
 
     def on_disconnected(self, event):
