@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NWS Message Monitor</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <h1 class="header-title">NWS Message Monitor</h1>
+            <div class="status-indicators">
+                <span class="status-dot" id="nwws-status" title="NWWS-OI"></span>
+                <span class="status-dot api-dot" id="api-status" title="NWS API"></span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search messages...">
+            </div>
+            <button class="btn btn-icon" id="settings-btn" title="Settings">&#9881;</button>
+        </div>
+    </header>
+
+    <div class="layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Filters</h2>
+                <button class="btn btn-sm btn-primary" id="add-filter-btn">+ Add</button>
+                <button class="btn btn-sm" id="toggle-sidebar-btn" title="Collapse">&#10094;</button>
+            </div>
+            <div class="filter-groups" id="filter-groups"></div>
+            <div class="sidebar-footer">
+                <button class="btn btn-sm" id="export-btn">Export</button>
+                <button class="btn btn-sm" id="import-btn">Import</button>
+                <input type="file" id="import-file" accept=".json" style="display:none">
+            </div>
+        </aside>
+
+        <main class="main">
+            <div class="message-list" id="message-list"></div>
+            <div class="pagination" id="pagination"></div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="message-modal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h3 id="modal-title">Message Detail</h3>
+                <button class="btn btn-icon modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="message-meta" id="modal-meta"></div>
+                <pre class="message-text" id="modal-text"></pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="filter-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="filter-modal-title">Add Filter</h3>
+                <button class="btn btn-icon modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="filter-form">
+                    <div class="form-group">
+                        <label for="filter-name">Name</label>
+                        <input type="text" id="filter-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="filter-type">Type</label>
+                        <select id="filter-type">
+                            <option value="product">Product (PIL Code)</option>
+                            <option value="office">Office</option>
+                            <option value="zone">Zone</option>
+                            <option value="location">Location</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="filter-mode">Mode</label>
+                        <select id="filter-mode">
+                            <option value="include">Include (whitelist)</option>
+                            <option value="exclude">Exclude (blacklist)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="filter-values">Values (one per line)</label>
+                        <textarea id="filter-values" rows="5" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="filter-enabled" checked> Enabled</label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save</button>
+                        <button type="button" class="btn modal-close">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Settings</h3>
+                <button class="btn btn-icon modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="settings-form">
+                    <div class="form-group">
+                        <label for="setting-retention">Retention (days)</label>
+                        <input type="number" id="setting-retention" min="1" max="365">
+                    </div>
+                    <div class="form-group">
+                        <label for="setting-poll">API Poll Interval (seconds)</label>
+                        <input type="number" id="setting-poll" min="10" max="300">
+                    </div>
+                    <div class="form-group">
+                        <label for="setting-source">Data Source</label>
+                        <select id="setting-source">
+                            <option value="api">API Only</option>
+                            <option value="nwws">NWWS-OI Only</option>
+                            <option value="both">Both</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save</button>
+                        <button type="button" class="btn modal-close">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

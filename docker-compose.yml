@@ -1,0 +1,42 @@
+services:
+  nws-monitor:
+    build: .
+    container_name: nws-monitor
+    ports:
+      - "8080:8000"
+    environment:
+      - DATABASE_URL=postgresql://nws_user:nws_pass@db:5432/nws_monitor
+      - API_USER_AGENT=(NWS-Monitor, your@email.com)
+      - RETENTION_DAYS=30
+      - API_POLL_INTERVAL=30
+      - PORT=8000
+      # Optional: Add these when you receive NWWS-OI credentials from NWS
+      # - NWWS_USERNAME=your_username
+      # - NWWS_PASSWORD=your_password
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: nws-db
+    environment:
+      POSTGRES_USER: nws_user
+      POSTGRES_PASSWORD: nws_pass
+      POSTGRES_DB: nws_monitor
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nws_user -d nws_monitor"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
