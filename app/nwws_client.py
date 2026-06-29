@@ -17,9 +17,9 @@ class NWWSClient(slixmpp.ClientXMPP):
     def __init__(self, username: str, password: str):
         super().__init__(username, password)
 
-        self.force_starttls = True
+        self.force_starttls = False
         self.use_srv = False
-        self.use_ssl = False
+        self.use_ssl = True
         self.port = NWWS_PORT
 
         self.register_plugin("xep_0045")
