@@ -80,13 +80,29 @@ class APIPoller:
         certainty = alert.get("certainty", "")
         sender = alert.get("senderName", "")
 
-        office = alert.get("issuingOffice", "NWS")
-        if not office:
-            office = "NWS"
-
         product_text = f"{event}\n{headline}\n\n{description}\n\nArea: {area_desc}\nSeverity: {severity}\nUrgency: {urgency}\nCertainty: {certainty}\nSender: {sender}"
 
+        params = alert.get("parameters") or {}
+
+        wmo_heading = None
+        wmo_vals = params.get("WMOidentifier") or []
+        if wmo_vals and wmo_vals[0]:
+            wmo_heading = wmo_vals[0]
+
+        office = "NWS"
         pil_code = event[:3].upper() if len(event) >= 3 else event.upper()
+
+        awips_vals = params.get("AWIPSidentifier") or []
+        if awips_vals and awips_vals[0] and len(awips_vals[0]) >= 6:
+            code = awips_vals[0].upper()
+            pil_code = code[:3]
+            office = code[-3:]
+        elif wmo_heading:
+            parts = wmo_heading.split()
+            if len(parts) >= 2 and len(parts[1]) >= 4:
+                candidate = parts[1].upper()
+                if candidate[0] in ("K", "P", "T", "U"):
+                    office = candidate[1:4]
 
         expires_at = None
         if alert.get("expires"):
@@ -97,7 +113,7 @@ class APIPoller:
 
         msg = MessageCreate(
             source="api",
-            wmo_heading=None,
+            wmo_heading=wmo_heading[:50] if wmo_heading else None,
             awips_id=alert_id[:255],
             pil_code=pil_code[:50],
             office=office[:50],
