@@ -604,6 +604,30 @@ body {
     font-size: 0.8rem;
 }
 
+.manual-values {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+}
+
+.manual-values textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    font-family: var(--font-mono, monospace);
+    outline: none;
+    resize: vertical;
+    min-height: 80px;
+    box-sizing: border-box;
+}
+
+.manual-values textarea::placeholder { color: var(--text-dim); }
+
 .form-actions {
     display: flex;
     gap: 0.5rem;

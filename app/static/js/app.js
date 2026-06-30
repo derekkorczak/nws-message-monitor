@@ -158,6 +158,34 @@
         return null;
     }
 
+    function toggleValuesInput() {
+        const type = $("#filter-type").value;
+        const multiSelect = $("#filter-values-select");
+        const manualEntry = $("#filter-values-manual");
+        if (type === "full_pil") {
+            multiSelect.style.display = "none";
+            manualEntry.style.display = "";
+        } else {
+            multiSelect.style.display = "";
+            manualEntry.style.display = "none";
+        }
+    }
+
+    function parseManualValues() {
+        const raw = $("#filter-values-textarea").value;
+        return raw.split(/[\n,]+/).map((v) => v.trim()).filter((v) => v.length > 0);
+    }
+
+    function updateManualCount() {
+        const vals = parseManualValues();
+        $("#filter-manual-count").textContent = `${vals.length} entered`;
+    }
+
+    function populateTextarea(vals) {
+        $("#filter-values-textarea").value = vals.join("\n");
+        updateManualCount();
+    }
+
     function populatePilDatalist() {
         const dl = document.getElementById("pil-codes-list");
         if (!dl) return;
@@ -424,7 +452,10 @@
             $("#filter-mode").value = "include";
             $("#filter-values").value = "";
             $("#filter-values-search").value = "";
+            $("#filter-values-textarea").value = "";
+            $("#filter-manual-count").textContent = "0 entered";
             $("#filter-enabled").checked = true;
+            toggleValuesInput();
             this.loadFilterOptions();
             showModal("filter-modal");
         },
@@ -441,6 +472,12 @@
             $("#filter-mode").value = filter.mode;
             $("#filter-values-search").value = "";
             $("#filter-enabled").checked = filter.enabled;
+            if (filter.type === "full_pil") {
+                populateTextarea(filter.values);
+            } else {
+                $("#filter-values-textarea").value = "";
+            }
+            toggleValuesInput();
             this.loadFilterOptions();
             showModal("filter-modal");
         },
@@ -448,6 +485,10 @@
         async loadFilterOptions() {
             const type = $("#filter-type").value;
             const optionsEl = $("#filter-values-options");
+            toggleValuesInput();
+            if (type === "full_pil") {
+                return;
+            }
             optionsEl.innerHTML = `<div class="multi-select-loading">Loading options...</div>`;
             try {
                 state.filterOptions = await api.get(`/api/filter-options/${type}`);
@@ -529,15 +570,17 @@
 
         async saveFilter(e) {
             e.preventDefault();
+            const type = $("#filter-type").value;
+            const values = type === "full_pil" ? parseManualValues() : state.selectedValues;
             const data = {
                 name: $("#filter-name").value.trim(),
-                type: $("#filter-type").value,
+                type,
                 mode: $("#filter-mode").value,
-                values: state.selectedValues,
+                values,
                 enabled: $("#filter-enabled").checked,
             };
 
-            if (state.selectedValues.length === 0) {
+            if (values.length === 0) {
                 alert("Please select at least one value");
                 return;
             }
@@ -814,12 +857,19 @@
             state.selectedValues = [];
             state.filterSearchQuery = "";
             $("#filter-values-search").value = "";
+            $("#filter-values-textarea").value = "";
+            updateManualCount();
+            toggleValuesInput();
             app.loadFilterOptions();
         });
 
         $("#filter-values-search").addEventListener("input", (e) => {
             state.filterSearchQuery = e.target.value;
             app.renderFilterOptions();
+        });
+
+        $("#filter-values-textarea").addEventListener("input", () => {
+            updateManualCount();
         });
 
         $("#filter-values-clear").addEventListener("click", () => app.clearValues());
