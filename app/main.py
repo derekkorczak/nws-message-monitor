@@ -423,7 +423,7 @@ async def import_filters(filters: list[dict]):
         mode = f.get("mode", "include")
         values = f.get("values", [])
         enabled = f.get("enabled", True)
-        if ftype not in ("product", "office", "zone", "location", "full_pil"):
+        if ftype not in ("product", "office", "zone", "location", "full_pil", "pil_zone"):
             continue
         if mode not in ("include", "exclude"):
             continue

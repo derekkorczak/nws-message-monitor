@@ -39,7 +39,7 @@ class MessageList(BaseModel):
 
 class FilterCreate(BaseModel):
     name: str
-    type: str = Field(..., pattern="^(product|office|zone|location|full_pil)$")
+    type: str = Field(..., pattern="^(product|office|zone|location|full_pil|pil_zone)$")
     mode: str = Field(..., pattern="^(include|exclude)$")
     values: list[str]
     enabled: bool = True
@@ -47,7 +47,7 @@ class FilterCreate(BaseModel):
 
 class FilterUpdate(BaseModel):
     name: str | None = None
-    type: str | None = Field(None, pattern="^(product|office|zone|location|full_pil)$")
+    type: str | None = Field(None, pattern="^(product|office|zone|location|full_pil|pil_zone)$")
     mode: str | None = Field(None, pattern="^(include|exclude)$")
     values: list[str] | None = None
     enabled: bool | None = None

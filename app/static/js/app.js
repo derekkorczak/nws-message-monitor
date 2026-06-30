@@ -162,12 +162,16 @@
         const type = $("#filter-type").value;
         const multiSelect = $("#filter-values-select");
         const manualEntry = $("#filter-values-manual");
-        if (type === "full_pil") {
-            multiSelect.style.display = "none";
-            manualEntry.style.display = "";
+        const useManual = (type === "full_pil" || type === "pil_zone");
+        multiSelect.style.display = useManual ? "none" : "";
+        manualEntry.style.display = useManual ? "" : "none";
+        if (type === "pil_zone") {
+            $("#filter-values-textarea").placeholder =
+                "PIL:CODE per line — e.g.\nTOR:320001\nSVR:KSC091\nFFW:510039";
         } else {
-            multiSelect.style.display = "";
-            manualEntry.style.display = "none";
+            $("#filter-values-textarea").placeholder =
+                "Enter codes, one per line or comma-separated\n" +
+                "e.g. RWRFGF, TORAMA, SVRORD";
         }
     }
 
@@ -472,7 +476,7 @@
             $("#filter-mode").value = filter.mode;
             $("#filter-values-search").value = "";
             $("#filter-enabled").checked = filter.enabled;
-            if (filter.type === "full_pil") {
+            if (filter.type === "full_pil" || filter.type === "pil_zone") {
                 populateTextarea(filter.values);
             } else {
                 $("#filter-values-textarea").value = "";
@@ -486,7 +490,7 @@
             const type = $("#filter-type").value;
             const optionsEl = $("#filter-values-options");
             toggleValuesInput();
-            if (type === "full_pil") {
+            if (type === "full_pil" || type === "pil_zone") {
                 return;
             }
             optionsEl.innerHTML = `<div class="multi-select-loading">Loading options...</div>`;
@@ -571,7 +575,7 @@
         async saveFilter(e) {
             e.preventDefault();
             const type = $("#filter-type").value;
-            const values = type === "full_pil" ? parseManualValues() : state.selectedValues;
+            const values = (type === "full_pil" || type === "pil_zone") ? parseManualValues() : state.selectedValues;
             const data = {
                 name: $("#filter-name").value.trim(),
                 type,
@@ -756,7 +760,7 @@
             groups[f.type].push(f);
         }
 
-        const labels = { product: "Products", office: "Offices", full_pil: "Full PIL Codes", zone: "Zones", location: "Locations" };
+        const labels = { product: "Products", office: "Offices", full_pil: "Full PIL Codes", pil_zone: "Product + Zone", zone: "Zones", location: "Locations" };
 
         container.innerHTML = Object.entries(groups).map(([type, filters]) => `
             <div class="filter-group">
