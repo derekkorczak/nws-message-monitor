@@ -18,7 +18,7 @@ UGC_LINE_RE = re.compile(
 _COUNTY_RE = re.compile(r'\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)\s+County\b')
 
 _CITY_DISTANCE_RE = re.compile(
-    r'\b(\d+)\s+(miles?|mi)\s+(?<dir>N|S|E|W|NE|NW|SE|SW|NNW|NNE|SSW|SSE|ENE|WNW|WSW|ESE)\s+of\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)',
+    r'\b(\d+)\s+(?:miles?|mi)\s+(?:N|S|E|W|NE|NW|SE|SW|NNW|NNE|SSW|SSE|ENE|WNW|WSW|ESE)\s+of\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)',
 )
 
 
@@ -129,7 +129,7 @@ def extract_text_locations(product_text: str) -> list[str]:
             seen_set.add(loc)
 
     for m in _CITY_DISTANCE_RE.finditer(product_text):
-        add(f"{m.group(3)}")
+        add(f"{m.group(2)}")
 
     for m in _COUNTY_RE.finditer(product_text):
         add(f"{m.group(1)} County")
