@@ -105,22 +105,91 @@
         return severity.toLowerCase();
     }
 
-    function getHeadline(text, source) {
+    const PIL_NAMES = {
+        TOR: "Tornado Warning",
+        SVR: "Severe Thunderstorm Warning",
+        SVS: "Severe Weather Statement",
+        EWW: "Extreme Wind Warning",
+        FFW: "Flash Flood Warning",
+        FFA: "Flash Flood Watch",
+        FFS: "Flash Flood Statement",
+        FLS: "Flood Statement",
+        FLW: "Flood Warning",
+        FLA: "Flood Watch",
+        WCN: "Watch County Notification",
+        SLS: "Severe Local Storm Watch",
+        WSW: "Winter Storm Warning",
+        BZW: "Blizzard Warning",
+        ISW: "Ice Storm Warning",
+        HWW: "High Wind Warning",
+        WIY: "Wind Advisory",
+        SPS: "Special Weather Statement",
+        AWW: "Airport Weather Warning",
+        CFW: "Coastal Flood Watch",
+        CWF: "Coastal Flood Warning",
+        CHW: "Coastal Hazard Message",
+        HUW: "Hurricane Warning",
+        HUA: "Hurricane Watch",
+        TSW: "Tropical Storm Warning",
+        TSA: "Tropical Storm Watch",
+        TCD: "Tropical Cyclone Discussion",
+        SMW: "Special Marine Warning",
+        MWS: "Marine Weather Statement",
+        NSH: "Nearshore Marine Forecast",
+        OFF: "Offshore Forecast",
+        WRN: "Weather Watch Clearance",
+        RWR: "Regional Weather Roundup",
+        RWS: "Regional Weather Summary",
+        LSR: "Local Storm Report",
+        PSP: "Public Information Statement",
+        PNS: "Public Information Statement",
+        AFW: "Area Forecast Discussion",
+        AFD: "Area Forecast Discussion",
+        FTM: "Freezing Spray Warning",
+    };
+
+    function getPilName(pilCode) {
+        if (!pilCode) return null;
+        const upper = pilCode.trim().toUpperCase();
+        const prefix = upper.match(/^([A-Z]{3})/);
+        if (prefix && PIL_NAMES[prefix[1]]) return PIL_NAMES[prefix[1]];
+        if (PIL_NAMES[upper]) return PIL_NAMES[upper];
+        return null;
+    }
+
+    function getHeadline(text, source, pilCode) {
         if (!text) return "No content";
         const lines = text.split("\n").filter((l) => l.trim());
+
+        const ugcPattern = /^[A-Z]{2}[CZ](?:\d{3}[-,]?)+-?$/;
+
+        let fallback = null;
         if (source === "nwws") {
-            // Skip the WMO heading (e.g. "WWUS53 KBIS 292230") and the AWIPS ID
-            // line (e.g. "SVSBIS") to surface the actual product title.
             const wmoPattern = /^[A-Z]{4}\d{2}\s+\w{4}\s+\d{6}/i;
             const awipsPattern = /^[A-Z0-9]{4,12}$/;
             for (const line of lines) {
                 const trimmed = line.trim();
-                if (!wmoPattern.test(trimmed) && !awipsPattern.test(trimmed)) {
-                    return trimmed.substring(0, 120);
+                if (wmoPattern.test(trimmed) || awipsPattern.test(trimmed)) continue;
+                if (ugcPattern.test(trimmed)) {
+                    if (!fallback) fallback = trimmed;
+                    continue;
                 }
+                return trimmed.substring(0, 120);
+            }
+        } else {
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (ugcPattern.test(trimmed)) {
+                    if (!fallback) fallback = trimmed;
+                    continue;
+                }
+                return trimmed.substring(0, 120);
             }
         }
-        return lines[0]?.substring(0, 120) || "No content";
+
+        const pilName = getPilName(pilCode);
+        if (pilName) return pilName;
+        return (fallback || lines[0] || "No content").substring(0, 120);
     }
 
     function escapeHtml(str) {
@@ -187,7 +256,7 @@
                         <span class="message-source ${escapeHtml(msg.source)}">${escapeHtml(msg.source)}</span>
                         ${severityBadge}
                     </div>
-                    <div class="message-headline">${escapeHtml(getHeadline(msg.product_text, msg.source))}</div>
+                    <div class="message-headline">${escapeHtml(getHeadline(msg.product_text, msg.source, msg.pil_code))}</div>
                 </div>
                 <div class="message-actions">
                     <button class="btn-icon" onclick="event.stopPropagation(); app.deleteMessage('${msg.id}')" title="Delete">&#10005;</button>
