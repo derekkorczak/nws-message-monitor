@@ -611,6 +611,60 @@ body {
     margin-top: 1.5rem;
 }
 
+.form-hint {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin: -0.25rem 0 0.5rem;
+}
+
+.pil-overrides-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.pil-override-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.pil-override-row .pil-code {
+    width: 5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.5rem;
+    border-radius: var(--radius);
+    font-size: 0.82rem;
+    font-family: monospace;
+    text-transform: uppercase;
+}
+
+.pil-override-row .pil-code:focus,
+.pil-override-row .pil-minutes:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.pil-override-row .pil-minutes {
+    width: 5.5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.5rem;
+    border-radius: var(--radius);
+    font-size: 0.82rem;
+}
+
+.pil-override-row .pil-suffix {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-right: auto;
+}
+
+
 .empty-state {
     text-align: center;
     padding: 3rem;

@@ -143,6 +143,13 @@
                         <label for="setting-expiration">Default Expiration (minutes)</label>
                         <input type="number" id="setting-expiration" min="0" max="10080">
                     </div>
+                    <div class="form-group">
+                        <label>PIL Expiration Overrides</label>
+                        <p class="form-hint">Per-product expiration in minutes. Overrides the default above.</p>
+                        <div id="pil-overrides-list" class="pil-overrides-list"></div>
+                        <button type="button" class="btn btn-sm" id="pil-overrides-add">+ Add override</button>
+                    </div>
+                    <datalist id="pil-codes-list"></datalist>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Save</button>
                         <button type="button" class="btn modal-close">Cancel</button>

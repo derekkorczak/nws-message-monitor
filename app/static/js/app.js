@@ -5,6 +5,7 @@
         messages: [],
         filters: [],
         settings: {},
+        pilOverrides: [],
         currentPage: 1,
         pageSize: 50,
         totalMessages: 0,
@@ -155,6 +156,15 @@
         if (prefix && PIL_NAMES[prefix[1]]) return PIL_NAMES[prefix[1]];
         if (PIL_NAMES[upper]) return PIL_NAMES[upper];
         return null;
+    }
+
+    function populatePilDatalist() {
+        const dl = document.getElementById("pil-codes-list");
+        if (!dl) return;
+        const codes = Object.keys(PIL_NAMES);
+        dl.innerHTML = codes
+            .map((c) => `<option value="${c}">${escapeHtml(PIL_NAMES[c])}</option>`)
+            .join("");
     }
 
     function getHeadline(text, source, pilCode) {
@@ -570,22 +580,69 @@
             $("#setting-poll").value = state.settings.api_poll_interval;
             $("#setting-source").value = state.settings.data_source;
             $("#setting-expiration").value = state.settings.default_expiration_minutes;
+            const overrides = state.settings.pil_expirations || {};
+            state.pilOverrides = Object.entries(overrides).map(([code, minutes]) => ({
+                code: code,
+                minutes: minutes,
+            }));
+            if (state.pilOverrides.length === 0) {
+                state.pilOverrides.push({ code: "", minutes: 60 });
+            }
+            this.renderPilOverrides();
             showModal("settings-modal");
+        },
+
+        renderPilOverrides() {
+            const list = $("#pil-overrides-list");
+            list.innerHTML = state.pilOverrides.map((row, idx) => `
+                <div class="pil-override-row" data-idx="${idx}">
+                    <input type="text" class="pil-code" list="pil-codes-list" placeholder="PIL" value="${escapeHtml(row.code || "")}" maxlength="4" spellcheck="false" autocomplete="off">
+                    <input type="number" class="pil-minutes" placeholder="minutes" min="0" max="10080" value="${row.minutes}">
+                    <span class="pil-suffix">min</span>
+                    <button type="button" class="btn-icon pil-remove" title="Remove">&times;</button>
+                </div>
+            `).join("");
+        },
+
+        addPilOverride() {
+            state.pilOverrides.push({ code: "", minutes: 60 });
+            this.renderPilOverrides();
+            const inputs = $("#pil-overrides-list").querySelectorAll(".pil-code");
+            inputs[inputs.length - 1].focus();
+        },
+
+        removePilOverride(idx) {
+            state.pilOverrides.splice(idx, 1);
+            this.renderPilOverrides();
         },
 
         async saveSettings(e) {
             e.preventDefault();
+            const pilExpirations = {};
+            const seen = new Set();
+            $$("#pil-overrides-list .pil-override-row").forEach((row) => {
+                const code = row.querySelector(".pil-code").value.trim().toUpperCase();
+                const minutes = parseInt(row.querySelector(".pil-minutes").value, 10);
+                if (!code) return;
+                if (seen.has(code)) return;
+                seen.add(code);
+                if (!isNaN(minutes) && minutes > 0) {
+                    pilExpirations[code] = minutes;
+                }
+            });
             try {
                 await api.put("/api/settings", {
                     retention_days: parseInt($("#setting-retention").value),
                     api_poll_interval: parseInt($("#setting-poll").value),
                     data_source: $("#setting-source").value,
                     default_expiration_minutes: parseInt($("#setting-expiration").value),
+                    pil_expirations: pilExpirations,
                 });
                 await this.loadSettings();
                 hideModal("settings-modal");
             } catch (err) {
                 console.error("Failed to save settings:", err);
+                alert("Failed to save settings");
             }
         },
 
@@ -744,6 +801,15 @@
         $("#filter-form").addEventListener("submit", (e) => app.saveFilter(e));
         $("#settings-form").addEventListener("submit", (e) => app.saveSettings(e));
 
+        $("#pil-overrides-add").addEventListener("click", () => app.addPilOverride());
+        $("#pil-overrides-list").addEventListener("click", (e) => {
+            const btn = e.target.closest(".pil-remove");
+            if (!btn) return;
+            const row = btn.closest(".pil-override-row");
+            const idx = parseInt(row.dataset.idx, 10);
+            if (!isNaN(idx)) app.removePilOverride(idx);
+        });
+
         $("#filter-type").addEventListener("change", () => {
             state.selectedValues = [];
             state.filterSearchQuery = "";
@@ -779,6 +845,7 @@
             }, 300);
         });
 
+        populatePilDatalist();
         app.loadSettings();
         app.loadFilters();
         loadMessages();
