@@ -335,6 +335,11 @@ async def get_filter_options(filter_type: str):
         return [r["pil_code"] for r in rows]
     elif filter_type == "office":
         return sorted(NWS_OFFICES.keys())
+    elif filter_type == "full_pil":
+        rows = await pool.fetch(
+            "SELECT DISTINCT pil_code, office FROM messages ORDER BY pil_code, office"
+        )
+        return [r["pil_code"].upper() + r["office"].upper() for r in rows]
     elif filter_type == "zone":
         # Query NWS zones API for all available zones
         zones = set()
@@ -418,7 +423,7 @@ async def import_filters(filters: list[dict]):
         mode = f.get("mode", "include")
         values = f.get("values", [])
         enabled = f.get("enabled", True)
-        if ftype not in ("product", "office", "zone", "location"):
+        if ftype not in ("product", "office", "zone", "location", "full_pil"):
             continue
         if mode not in ("include", "exclude"):
             continue

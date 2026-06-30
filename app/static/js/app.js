@@ -713,7 +713,7 @@
             groups[f.type].push(f);
         }
 
-        const labels = { product: "Products", office: "Offices", zone: "Zones", location: "Locations" };
+        const labels = { product: "Products", office: "Offices", full_pil: "Full PIL Codes", zone: "Zones", location: "Locations" };
 
         container.innerHTML = Object.entries(groups).map(([type, filters]) => `
             <div class="filter-group">

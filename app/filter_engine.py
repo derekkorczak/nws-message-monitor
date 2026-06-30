@@ -39,6 +39,9 @@ class FilterEngine:
         elif filter_type == "zone":
             text = msg.product_text.lower()
             return any(v in text for v in lower_values)
+        elif filter_type == "full_pil":
+            full_code = (msg.pil_code + msg.office).lower().strip()
+            return full_code in lower_values
         elif filter_type == "location":
             text = msg.product_text.lower()
             header = (msg.wmo_heading or "").lower()
