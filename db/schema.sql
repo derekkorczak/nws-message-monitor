@@ -25,7 +25,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_not_deleted ON messages (received_at DES
 CREATE TABLE IF NOT EXISTS filters (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
-    type VARCHAR(20) NOT NULL CHECK (type IN ('product', 'office', 'zone', 'location')),
+    type VARCHAR(20) NOT NULL CHECK (type IN ('product', 'office', 'zone', 'location', 'full_pil', 'pil_zone')),
     mode VARCHAR(10) NOT NULL CHECK (mode IN ('include', 'exclude')),
     values TEXT[] NOT NULL DEFAULT '{}',
     enabled BOOLEAN DEFAULT TRUE,
@@ -52,3 +52,6 @@ ALTER TABLE messages ALTER COLUMN pil_code TYPE VARCHAR(50);
 ALTER TABLE messages ALTER COLUMN office TYPE VARCHAR(50);
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS severity VARCHAR(20);
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+
+ALTER TABLE filters DROP CONSTRAINT IF EXISTS filters_type_check;
+ALTER TABLE filters ADD CONSTRAINT filters_type_check CHECK (type IN ('product', 'office', 'zone', 'location', 'full_pil', 'pil_zone'));
