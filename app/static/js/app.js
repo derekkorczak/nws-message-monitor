@@ -357,10 +357,11 @@
         async deleteMessage(id) {
             try {
                 await api.del(`/api/messages/${id}`);
-                state.messages = state.messages.filter((m) => m.id !== id);
-                state.totalMessages = Math.max(0, state.totalMessages - 1);
-                renderMessages();
-                renderPagination();
+                await loadMessages(state.currentPage);
+                const totalPages = Math.ceil(state.totalMessages / state.pageSize);
+                if (state.currentPage > totalPages) {
+                    await loadMessages(Math.max(1, totalPages));
+                }
             } catch (err) {
                 console.error("Failed to delete message:", err);
             }
