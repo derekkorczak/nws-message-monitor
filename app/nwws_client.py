@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import slixmpp
 from slixmpp.xmlstream import XMLStream
 from app.config import get_settings
+from app.location_parser import resolve_location
 from app.models import MessageCreate
 from app.message_processor import message_processor
 
@@ -170,6 +171,13 @@ class NWWSClient(slixmpp.ClientXMPP):
                 parsed = self._parse_message(body)
 
             if parsed:
+                try:
+                    area_desc = await resolve_location(parsed.product_text, parsed.pil_code)
+                    if area_desc:
+                        parsed = parsed.model_copy(update={"area_desc": area_desc})
+                except Exception:
+                    logger.debug("Location resolution failed for %s", parsed.pil_code)
+
                 stored = await message_processor.process(parsed)
                 if stored:
                     self._messages_count += 1

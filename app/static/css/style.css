@@ -358,6 +358,15 @@ body {
 .message-source.nwws { background: rgba(52, 211, 153, 0.15); color: var(--success); }
 .message-source.api { background: rgba(74, 158, 255, 0.15); color: var(--primary); }
 
+.message-location {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .message-severity {
     font-size: 0.65rem;
     padding: 0.1rem 0.3rem;

@@ -253,6 +253,17 @@
         return officeCode;
     }
 
+    function formatLocation(areaDesc) {
+        if (!areaDesc) return "";
+        const parts = areaDesc.split(";").map((s) => s.trim()).filter(Boolean);
+        if (parts.length === 0) return "";
+        const shown = parts.slice(0, 2);
+        const remaining = parts.length - shown.length;
+        let text = shown.join("; ");
+        if (remaining > 0) text += ` (+${remaining})`;
+        return text;
+    }
+
     async function loadMessages(page = 1) {
         state.currentPage = page;
         const params = new URLSearchParams({
@@ -305,6 +316,7 @@
                         <span class="message-pil">${escapeHtml(msg.pil_code)}</span>
                         <span class="message-office">${escapeHtml(getOfficeDisplay(msg.office))}</span>
                         <span class="message-source ${escapeHtml(msg.source)}">${escapeHtml(msg.source)}</span>
+                        ${msg.area_desc ? `<span class="message-location" title="${escapeHtml(msg.area_desc)}">${escapeHtml(formatLocation(msg.area_desc))}</span>` : ""}
                         ${severityBadge}
                     </div>
                     <div class="message-headline">${escapeHtml(getHeadline(msg.product_text, msg.source, msg.pil_code))}</div>
@@ -388,10 +400,14 @@
                 const severityHtml = msg.severity
                     ? `<dt>Severity</dt><dd><span class="message-severity severity-${getSeverityClass(msg.severity)}">${escapeHtml(msg.severity)}</span></dd>`
                     : "";
+                const locationHtml = msg.area_desc
+                    ? `<dt>Location</dt><dd>${escapeHtml(msg.area_desc)}</dd>`
+                    : "";
                 $("#modal-meta").innerHTML = `
                     <dt>Source</dt><dd>${escapeHtml(msg.source)}</dd>
                     <dt>PIL Code</dt><dd>${escapeHtml(msg.pil_code)}</dd>
                     <dt>Office</dt><dd>${escapeHtml(getOfficeDisplay(msg.office))}</dd>
+                    ${locationHtml}
                     ${severityHtml}
                     <dt>WMO Heading</dt><dd>${escapeHtml(msg.wmo_heading || "N/A")}</dd>
                     <dt>AWIPS ID</dt><dd>${escapeHtml(msg.awips_id || "N/A")}</dd>

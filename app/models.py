@@ -12,6 +12,7 @@ class MessageCreate(BaseModel):
     product_text: str
     severity: str | None = None
     expires_at: datetime | None = None
+    area_desc: str | None = None
 
 
 class Message(BaseModel):
@@ -24,6 +25,7 @@ class Message(BaseModel):
     office: str
     product_text: str
     severity: str | None = None
+    area_desc: str | None = None
     is_deleted: bool = False
     deleted_at: datetime | None = None
     expires_at: datetime | None = None

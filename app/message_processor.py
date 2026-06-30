@@ -43,34 +43,32 @@ class MessageProcessor:
                 return False
 
         # --- Dedup by wmo_heading (cross-source: NWWS vs API for same product) ---
-        # Both NWWS and API carry the same WMO heading line (e.g. "WWUS53 KBIS 292230")
-        # which uniquely identifies a product issuance.  Use it to avoid storing the
-        # same product twice when both sources deliver it.
         if msg.wmo_heading:
             existing_wmo = await pool.fetchrow(
-                "SELECT id, is_deleted, source, product_text FROM messages "
+                "SELECT id, is_deleted, source, product_text, area_desc FROM messages "
                 "WHERE wmo_heading = $1 "
                 "AND COALESCE(expires_at, received_at + INTERVAL '2 hours') > NOW()",
                 msg.wmo_heading,
             )
             if existing_wmo and not existing_wmo["is_deleted"]:
                 if msg.source == "nwws" and existing_wmo["source"] != "nwws":
-                    # Upgrade the existing API record to NWWS with the raw product text.
                     await pool.execute(
                         "UPDATE messages SET source = 'nwws', product_text = $1, "
-                        "awips_id = COALESCE(awips_id, $2) WHERE id = $3",
+                        "area_desc = COALESCE(area_desc, $2), "
+                        "awips_id = COALESCE(awips_id, $3) WHERE id = $4",
                         msg.product_text,
+                        msg.area_desc,
                         msg.awips_id,
                         existing_wmo["id"],
                     )
                 return False
 
         row = await pool.fetchrow(
-            "INSERT INTO messages (source, wmo_heading, awips_id, pil_code, office, "
-            "product_text, severity, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) "
-            "RETURNING id, received_at",
-            msg.source, msg.wmo_heading, msg.awips_id, msg.pil_code,
-            msg.office, msg.product_text, msg.severity, msg.expires_at,
+             "INSERT INTO messages (source, wmo_heading, awips_id, pil_code, office, "
+             "product_text, severity, area_desc, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) "
+             "RETURNING id, received_at",
+             msg.source, msg.wmo_heading, msg.awips_id, msg.pil_code,
+             msg.office, msg.product_text, msg.severity, msg.area_desc, msg.expires_at,
         )
 
         expires_at = msg.expires_at
@@ -121,6 +119,7 @@ class MessageProcessor:
             office=msg.office,
             product_text=msg.product_text,
             severity=msg.severity,
+            area_desc=msg.area_desc,
             is_deleted=False,
             deleted_at=None,
             expires_at=expires_at,

@@ -120,6 +120,7 @@ class APIPoller:
             product_text=product_text,
             severity=severity if severity else None,
             expires_at=expires_at,
+            area_desc=area_desc if area_desc else None,
         )
 
         stored = await message_processor.process(msg)
