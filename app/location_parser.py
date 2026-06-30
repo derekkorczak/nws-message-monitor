@@ -61,23 +61,23 @@ class ZoneResolver:
 
             try:
                 async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
-                    for st in states:
-                        for zone_type in ["county", "forecast", "public", "marine"]:
-                            url = "https://api.weather.gov/zones"
-                            params = {"state": st, "type": zone_type, "limit": 500}
-                            try:
-                                resp = await client.get(url, params=params)
-                                if resp.status_code != 200:
-                                    continue
-                                data = resp.json()
-                                for feature in data.get("features", []):
-                                    props = feature.get("properties", {})
-                                    zid = (props.get("id") or "").upper()
-                                    zname = props.get("name") or ""
-                                    if zid and zname and zid not in fetched:
+                    for zone_type in ["county", "forecast", "public", "marine"]:
+                        url = "https://api.weather.gov/zones"
+                        params = {"type": zone_type, "limit": 500}
+                        try:
+                            resp = await client.get(url, params=params)
+                            if resp.status_code != 200:
+                                continue
+                            data = resp.json()
+                            for feature in data.get("features", []):
+                                props = feature.get("properties", {})
+                                zid = (props.get("id") or "").upper()
+                                zname = props.get("name") or ""
+                                if zid and zname and zid not in fetched:
+                                    if any(zid.startswith(st.upper()) for st in states):
                                         fetched[zid] = zname.strip()
-                            except Exception as e:
-                                logger.debug("Zone fetch error for %s/%s: %s", st, zone_type, e)
+                        except Exception as e:
+                            logger.debug("Zone fetch error for %s: %s", zone_type, e)
             except Exception as e:
                 logger.warning("Zone resolution failed: %s", e)
 
