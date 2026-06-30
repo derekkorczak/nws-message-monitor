@@ -162,6 +162,12 @@
         const lines = text.split("\n").filter((l) => l.trim());
 
         const ugcPattern = /^[A-Z]{2}[CZ](?:\d{3}[-,]?)+-?$/;
+        const vtecPattern = /^\/[A-Z]+\.[A-Z]+\.[A-Z0-9]{3,4}\.[A-Z]{2}\.[A-Z]\.\d{4}\./;
+        const bulletinPattern = /^BULLETIN\s*-/i;
+
+        function isSkippable(trimmed) {
+            return ugcPattern.test(trimmed) || vtecPattern.test(trimmed) || bulletinPattern.test(trimmed);
+        }
 
         let fallback = null;
         if (source === "nwws") {
@@ -170,7 +176,7 @@
             for (const line of lines) {
                 const trimmed = line.trim();
                 if (wmoPattern.test(trimmed) || awipsPattern.test(trimmed)) continue;
-                if (ugcPattern.test(trimmed)) {
+                if (isSkippable(trimmed)) {
                     if (!fallback) fallback = trimmed;
                     continue;
                 }
@@ -179,7 +185,7 @@
         } else {
             for (const line of lines) {
                 const trimmed = line.trim();
-                if (ugcPattern.test(trimmed)) {
+                if (isSkippable(trimmed)) {
                     if (!fallback) fallback = trimmed;
                     continue;
                 }
