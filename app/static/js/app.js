@@ -250,10 +250,13 @@
                 ? `<span class="message-severity severity-${severityClass}">${escapeHtml(msg.severity)}</span>`
                 : "";
             const itemSeverityClass = msg.severity ? `severity-${severityClass}` : "";
+            const unreadDot = !msg.read_at
+                ? `<span class="unread-dot" title="Unread"></span>`
+                : "";
             return `
             <div class="message-item ${itemSeverityClass}" data-id="${msg.id}" onclick="app.showMessage('${msg.id}')">
                 <div class="message-time">
-                    ${formatTime(msg.received_at)}
+                    ${unreadDot}${formatTime(msg.received_at)}
                 </div>
                 <div class="message-info">
                     <div class="message-head">
@@ -333,6 +336,12 @@
         async showMessage(id) {
             try {
                 const msg = await api.get(`/api/messages/${id}`);
+                const localMsg = state.messages.find((m) => m.id === id);
+                if (localMsg && !localMsg.read_at) {
+                    localMsg.read_at = msg.read_at || new Date().toISOString();
+                    const dot = document.querySelector(`.message-item[data-id="${id}"] .unread-dot`);
+                    if (dot) dot.remove();
+                }
                 $("#modal-title").textContent = `${msg.pil_code} - ${getOfficeDisplay(msg.office)}`;
                 const severityHtml = msg.severity
                     ? `<dt>Severity</dt><dd><span class="message-severity severity-${getSeverityClass(msg.severity)}">${escapeHtml(msg.severity)}</span></dd>`
@@ -364,6 +373,17 @@
                 }
             } catch (err) {
                 console.error("Failed to delete message:", err);
+            }
+        },
+
+        async markAllRead() {
+            try {
+                const now = new Date().toISOString();
+                state.messages.forEach((m) => { if (!m.read_at) m.read_at = now; });
+                document.querySelectorAll(".unread-dot").forEach((el) => el.remove());
+                await api.post("/api/messages/mark-all-read", {});
+            } catch (err) {
+                console.error("Failed to mark all read:", err);
             }
         },
 
@@ -713,6 +733,7 @@
 
         $("#settings-btn").addEventListener("click", () => app.openSettings());
         $("#add-filter-btn").addEventListener("click", () => app.openAddFilter());
+        $("#mark-all-read-btn").addEventListener("click", () => app.markAllRead());
         $("#export-btn").addEventListener("click", () => app.exportFilters());
         $("#import-btn").addEventListener("click", () => $("#import-file").click());
         $("#import-file").addEventListener("change", (e) => {

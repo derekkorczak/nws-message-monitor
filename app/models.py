@@ -27,6 +27,7 @@ class Message(BaseModel):
     is_deleted: bool = False
     deleted_at: datetime | None = None
     expires_at: datetime | None = None
+    read_at: datetime | None = None
 
 
 class MessageList(BaseModel):

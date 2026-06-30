@@ -120,6 +120,7 @@ async def list_messages(
             is_deleted=r["is_deleted"],
             deleted_at=r["deleted_at"],
             expires_at=r["expires_at"],
+            read_at=r["read_at"],
         ))
 
     return MessageList(messages=messages, total=total, page=page, page_size=page_size)
@@ -131,6 +132,12 @@ async def get_message(message_id: UUID):
     row = await pool.fetchrow("SELECT * FROM messages WHERE id = $1", message_id)
     if not row:
         raise HTTPException(404, "Message not found")
+    if not row["read_at"]:
+        await pool.execute(
+            "UPDATE messages SET read_at = NOW() WHERE id = $1 AND read_at IS NULL",
+            message_id,
+        )
+        row = await pool.fetchrow("SELECT * FROM messages WHERE id = $1", message_id)
     return Message(
         id=row["id"],
         received_at=row["received_at"],
@@ -144,7 +151,17 @@ async def get_message(message_id: UUID):
         is_deleted=row["is_deleted"],
         deleted_at=row["deleted_at"],
         expires_at=row["expires_at"],
+        read_at=row["read_at"],
     )
+
+
+@app.post("/api/messages/mark-all-read")
+async def mark_all_read():
+    pool = get_pool()
+    result = await pool.execute(
+        "UPDATE messages SET read_at = NOW() WHERE read_at IS NULL AND is_deleted = FALSE"
+    )
+    return {"status": "ok"}
 
 
 @app.delete("/api/messages/{message_id}")

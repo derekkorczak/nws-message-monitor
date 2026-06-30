@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS messages (
     severity VARCHAR(20),
     is_deleted BOOLEAN DEFAULT FALSE,
     deleted_at TIMESTAMPTZ,
-    expires_at TIMESTAMPTZ
+    expires_at TIMESTAMPTZ,
+    read_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_received_at ON messages (received_at DESC);
@@ -49,3 +50,4 @@ ALTER TABLE messages ALTER COLUMN awips_id TYPE VARCHAR(255);
 ALTER TABLE messages ALTER COLUMN pil_code TYPE VARCHAR(50);
 ALTER TABLE messages ALTER COLUMN office TYPE VARCHAR(50);
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS severity VARCHAR(20);
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
