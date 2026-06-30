@@ -68,6 +68,7 @@ class Settings(BaseModel):
     api_poll_interval: int = 30
     data_source: str = "api"
     default_expiration_minutes: int = 120
+    pil_expirations: dict[str, int] = {"LSR": 180}
 
 
 class SettingsUpdate(BaseModel):
@@ -75,6 +76,7 @@ class SettingsUpdate(BaseModel):
     api_poll_interval: int | None = None
     data_source: str | None = None
     default_expiration_minutes: int | None = None
+    pil_expirations: dict[str, int] | None = None
 
 
 class Status(BaseModel):

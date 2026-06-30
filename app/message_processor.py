@@ -75,17 +75,41 @@ class MessageProcessor:
 
         expires_at = msg.expires_at
         if expires_at is None:
-            default_exp_row = await pool.fetchrow(
-                "SELECT value FROM settings WHERE key = 'default_expiration_minutes'"
+            pil_exp_row = await pool.fetchrow(
+                "SELECT value FROM settings WHERE key = 'pil_expirations'"
             )
-            if default_exp_row:
-                default_minutes = int(default_exp_row["value"])
-                if default_minutes > 0:
-                    expires_at = row["received_at"] + timedelta(minutes=default_minutes)
-                    await pool.execute(
-                        "UPDATE messages SET expires_at = $1 WHERE id = $2",
-                        expires_at, row["id"],
-                    )
+            pil_minutes = None
+            if pil_exp_row:
+                try:
+                    pil_map = json.loads(pil_exp_row["value"])
+                    if isinstance(pil_map, dict) and msg.pil_code:
+                        raw = pil_map.get(msg.pil_code) or pil_map.get(msg.pil_code.upper())
+                        if raw is not None:
+                            pil_minutes = int(raw)
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    pil_minutes = None
+
+            minutes = None
+            if pil_minutes and pil_minutes > 0:
+                minutes = pil_minutes
+            else:
+                default_exp_row = await pool.fetchrow(
+                    "SELECT value FROM settings WHERE key = 'default_expiration_minutes'"
+                )
+                if default_exp_row:
+                    try:
+                        default_minutes = int(default_exp_row["value"])
+                        if default_minutes > 0:
+                            minutes = default_minutes
+                    except ValueError:
+                        minutes = None
+
+            if minutes is not None:
+                expires_at = row["received_at"] + timedelta(minutes=minutes)
+                await pool.execute(
+                    "UPDATE messages SET expires_at = $1 WHERE id = $2",
+                    expires_at, row["id"],
+                )
 
         stored = Message(
             id=row["id"],

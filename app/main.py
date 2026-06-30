@@ -274,11 +274,19 @@ async def get_settings_api():
     pool = get_pool()
     rows = await pool.fetch("SELECT key, value FROM settings")
     d = {r["key"]: r["value"] for r in rows}
+    raw_pil = d.get("pil_expirations", '{"LSR": 180}')
+    try:
+        pil_expirations = json.loads(raw_pil) if isinstance(raw_pil, str) else raw_pil
+        if not isinstance(pil_expirations, dict):
+            pil_expirations = {"LSR": 180}
+    except (json.JSONDecodeError, TypeError):
+        pil_expirations = {"LSR": 180}
     return SettingsModel(
         retention_days=int(d.get("retention_days", "30")),
         api_poll_interval=int(d.get("api_poll_interval", "30")),
         data_source=d.get("data_source", "api"),
         default_expiration_minutes=int(d.get("default_expiration_minutes", "120")),
+        pil_expirations=pil_expirations,
     )
 
 
@@ -294,6 +302,8 @@ async def update_settings(data: SettingsUpdate):
         updates["data_source"] = data.data_source
     if data.default_expiration_minutes is not None:
         updates["default_expiration_minutes"] = str(data.default_expiration_minutes)
+    if data.pil_expirations is not None:
+        updates["pil_expirations"] = json.dumps(data.pil_expirations)
 
     for k, v in updates.items():
         await pool.execute(
