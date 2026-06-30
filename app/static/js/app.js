@@ -257,7 +257,8 @@
         if (!areaDesc) return "";
         const parts = areaDesc.split(";").map((s) => s.trim()).filter(Boolean);
         if (parts.length === 0) return "";
-        const shown = parts.slice(0, 2);
+        const MAX_SHOW = 4;
+        const shown = parts.slice(0, MAX_SHOW);
         const remaining = parts.length - shown.length;
         let text = shown.join("; ");
         if (remaining > 0) text += ` (+${remaining})`;

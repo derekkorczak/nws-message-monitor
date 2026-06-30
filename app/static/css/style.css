@@ -361,7 +361,7 @@ body {
 .message-location {
     font-size: 0.75rem;
     color: var(--text-muted);
-    max-width: 200px;
+    max-width: 350px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

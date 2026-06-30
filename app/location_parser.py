@@ -45,14 +45,8 @@ class ZoneResolver:
 
     async def _fetch_zones(self, codes: list[str]):
         async with self._lock:
-            if codes and self._cache and time.time() - self._last_fetch < self._ttl:
-                return
-
-            states: set[str] = set()
-            for c in codes:
-                if len(c) >= 2:
-                    states.add(c[:2])
-            if not states:
+            unknown = [c for c in codes if c.upper() not in self._cache]
+            if not unknown:
                 return
 
             settings = get_settings()
@@ -61,28 +55,25 @@ class ZoneResolver:
 
             try:
                 async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
-                    for zone_type in ["county", "forecast", "public", "marine"]:
-                        url = "https://api.weather.gov/zones"
-                        params = {"type": zone_type, "limit": 500}
+                    for zid in unknown:
                         try:
-                            resp = await client.get(url, params=params)
-                            if resp.status_code != 200:
-                                continue
-                            data = resp.json()
-                            for feature in data.get("features", []):
-                                props = feature.get("properties", {})
-                                zid = (props.get("id") or "").upper()
-                                zname = props.get("name") or ""
-                                if zid and zname and zid not in fetched:
-                                    if any(zid.startswith(st.upper()) for st in states):
-                                        fetched[zid] = zname.strip()
+                            resp = await client.get(
+                                f"https://api.weather.gov/zones/{zid.lower()}"
+                            )
+                            if resp.status_code == 200:
+                                data = resp.json()
+                                name = data.get("properties", {}).get("name", "")
+                                if name:
+                                    fetched[zid.upper()] = name.strip()
+                        except httpx.HTTPStatusError:
+                            pass
                         except Exception as e:
-                            logger.debug("Zone fetch error for %s: %s", zone_type, e)
+                            logger.debug("Zone fetch error for %s: %s", zid, e)
             except Exception as e:
                 logger.warning("Zone resolution failed: %s", e)
 
-            self._cache.update(fetched)
-            self._last_fetch = time.time()
+            if fetched:
+                self._cache.update(fetched)
 
 
 _resolver = ZoneResolver()
@@ -151,11 +142,11 @@ async def resolve_location(product_text: str, pil_code: str) -> str | None:
                 unique_names.append(n)
                 unique_set.add(n)
         if unique_names:
-            return "; ".join(unique_names[:5])
+            return "; ".join(unique_names)
 
     text_locs = extract_text_locations(product_text)
     if text_locs:
-        return "; ".join(text_locs[:3])
+        return "; ".join(text_locs)
 
     return None
 
