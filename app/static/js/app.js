@@ -358,7 +358,9 @@
             try {
                 await api.del(`/api/messages/${id}`);
                 state.messages = state.messages.filter((m) => m.id !== id);
+                state.totalMessages = Math.max(0, state.totalMessages - 1);
                 renderMessages();
+                renderPagination();
             } catch (err) {
                 console.error("Failed to delete message:", err);
             }
