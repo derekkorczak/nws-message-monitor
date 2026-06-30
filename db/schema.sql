@@ -43,7 +43,7 @@ INSERT INTO settings (key, value) VALUES
     ('api_poll_interval', '30'),
     ('data_source', 'api'),
     ('default_expiration_minutes', '120'),
-    ('pil_expirations', '{"LSR": 180}')
+    ('pil_expirations', '{"LSR": 180, "HWO": 1380}')
 ON CONFLICT (key) DO NOTHING;
 
 ALTER TABLE messages ALTER COLUMN wmo_heading TYPE VARCHAR(50);

@@ -68,7 +68,7 @@ class Settings(BaseModel):
     api_poll_interval: int = 30
     data_source: str = "api"
     default_expiration_minutes: int = 120
-    pil_expirations: dict[str, int] = {"LSR": 180}
+    pil_expirations: dict[str, int] = {"LSR": 180, "HWO": 1380}
 
 
 class SettingsUpdate(BaseModel):
