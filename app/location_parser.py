@@ -59,7 +59,7 @@ class ZoneResolver:
                         try:
                             zone_type = "county" if len(zid) > 2 and zid[2].upper() == "C" else "forecast"
                             resp = await client.get(
-                                f"https://api.weather.gov/zones/{zone_type}/{zid.lower()}"
+                                f"https://api.weather.gov/zones/{zone_type}/{zid.upper()}"
                             )
                             if resp.status_code == 200:
                                 data = resp.json()
