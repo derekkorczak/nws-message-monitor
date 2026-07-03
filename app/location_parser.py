@@ -57,8 +57,9 @@ class ZoneResolver:
                 async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
                     for zid in unknown:
                         try:
+                            zone_type = "county" if len(zid) > 2 and zid[2].upper() == "C" else "forecast"
                             resp = await client.get(
-                                f"https://api.weather.gov/zones/{zid.lower()}"
+                                f"https://api.weather.gov/zones/{zone_type}/{zid.lower()}"
                             )
                             if resp.status_code == 200:
                                 data = resp.json()
