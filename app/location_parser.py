@@ -1,10 +1,7 @@
-import asyncio
+import json
 import logging
+import os
 import re
-import time
-
-import httpx
-from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -25,56 +22,22 @@ _CITY_DISTANCE_RE = re.compile(
 class ZoneResolver:
     def __init__(self):
         self._cache: dict[str, str] = {}
-        self._lock = asyncio.Lock()
-        self._last_fetch: float = 0
-        self._ttl: float = 86400
+        data_path = os.path.join(os.path.dirname(__file__), "zone_names.json")
+        try:
+            with open(data_path, "r", encoding="utf-8") as f:
+                self._cache.update(json.load(f))
+            logger.info("Loaded %d zone names from %s", len(self._cache), data_path)
+        except Exception as e:
+            logger.warning("Failed to load bundled zone names from %s: %s", data_path, e)
 
     async def resolve(self, codes: list[str]) -> list[str]:
         if not codes:
             return []
-
-        unknown = [c for c in codes if c.upper() not in self._cache]
-        if unknown:
-            await self._fetch_zones(unknown)
-
         resolved = []
         for c in codes:
             name = self._cache.get(c.upper())
             resolved.append(name if name else c)
         return resolved
-
-    async def _fetch_zones(self, codes: list[str]):
-        async with self._lock:
-            unknown = [c for c in codes if c.upper() not in self._cache]
-            if not unknown:
-                return
-
-            settings = get_settings()
-            headers = {"User-Agent": settings.api_user_agent}
-            fetched: dict[str, str] = {}
-
-            try:
-                async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
-                    for zid in unknown:
-                        try:
-                            zone_type = "county" if len(zid) > 2 and zid[2].upper() == "C" else "forecast"
-                            resp = await client.get(
-                                f"https://api.weather.gov/zones/{zone_type}/{zid.upper()}"
-                            )
-                            if resp.status_code == 200:
-                                data = resp.json()
-                                name = data.get("properties", {}).get("name", "")
-                                if name:
-                                    fetched[zid.upper()] = name.strip()
-                        except httpx.HTTPStatusError:
-                            pass
-                        except Exception as e:
-                            logger.debug("Zone fetch error for %s: %s", zid, e)
-            except Exception as e:
-                logger.warning("Zone resolution failed: %s", e)
-
-            if fetched:
-                self._cache.update(fetched)
 
 
 _resolver = ZoneResolver()
