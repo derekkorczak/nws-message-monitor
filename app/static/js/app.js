@@ -605,13 +605,15 @@
                 <div class="message-time">
                     ${unreadDot}${formatTime(msg.received_at)}
                 </div>
+                <div class="message-severity-col">
+                    ${severityBadge}
+                </div>
                 <div class="message-info">
                     <div class="message-head">
                         <span class="message-pil">${escapeHtml(msg.pil_code)}</span>
                         <span class="message-office">${escapeHtml(getOfficeDisplay(msg.office))}</span>
                         <span class="message-source ${escapeHtml(msg.source)}">${escapeHtml(msg.source)}</span>
                         ${msg.area_desc ? `<span class="message-location" title="${escapeHtml(msg.area_desc)}">${escapeHtml(formatLocation(msg.area_desc))}</span>` : ""}
-                        ${severityBadge}
                     </div>
                     <div class="message-headline">${escapeHtml(getHeadline(msg.product_text, msg.source, msg.pil_code))}</div>
                 </div>

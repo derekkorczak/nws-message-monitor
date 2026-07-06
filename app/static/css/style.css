@@ -371,6 +371,13 @@ body {
     white-space: nowrap;
 }
 
+.message-severity-col {
+    flex-shrink: 0;
+    width: 70px;
+    display: flex;
+    align-items: center;
+}
+
 .message-severity {
     flex-shrink: 0;
     font-size: 0.65rem;
