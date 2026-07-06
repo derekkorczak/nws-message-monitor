@@ -555,14 +555,7 @@
 
     function formatLocation(areaDesc) {
         if (!areaDesc) return "";
-        const parts = areaDesc.split(";").map((s) => s.trim()).filter(Boolean);
-        if (parts.length === 0) return "";
-        const MAX_SHOW = 4;
-        const shown = parts.slice(0, MAX_SHOW);
-        const remaining = parts.length - shown.length;
-        let text = shown.join("; ");
-        if (remaining > 0) text += ` (+${remaining})`;
-        return text;
+        return areaDesc.split(";").map((s) => s.trim()).filter(Boolean).join("; ");
     }
 
     async function loadMessages(page = 1) {

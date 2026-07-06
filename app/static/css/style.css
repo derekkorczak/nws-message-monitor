@@ -335,6 +335,7 @@ body {
 }
 
 .message-pil {
+    flex-shrink: 0;
     font-weight: 700;
     font-size: 0.85rem;
     color: var(--primary);
@@ -342,12 +343,14 @@ body {
 }
 
 .message-office {
+    flex-shrink: 0;
     font-size: 0.75rem;
     color: var(--text-muted);
     font-family: monospace;
 }
 
 .message-source {
+    flex-shrink: 0;
     font-size: 0.65rem;
     padding: 0.1rem 0.3rem;
     border-radius: 3px;
@@ -359,15 +362,17 @@ body {
 .message-source.api { background: rgba(74, 158, 255, 0.15); color: var(--primary); }
 
 .message-location {
+    flex: 1;
+    min-width: 0;
     font-size: 0.75rem;
     color: var(--text-muted);
-    max-width: 350px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .message-severity {
+    flex-shrink: 0;
     font-size: 0.65rem;
     padding: 0.1rem 0.3rem;
     border-radius: 3px;
