@@ -82,6 +82,9 @@
         if (minutes < 5) {
             return { text: `Expiring in ${relative}`, state: "imminent" };
         }
+        if (minutes < 15) {
+            return { text: `Expires in ${relative}`, state: "warning" };
+        }
         return { text: `Expires in ${relative}`, state: "active" };
     }
 
