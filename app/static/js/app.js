@@ -812,7 +812,11 @@
             }
             optionsEl.innerHTML = `<div class="multi-select-loading">Loading options...</div>`;
             try {
-                state.filterOptions = await api.get(`/api/filter-options/${type}`);
+                if (type === "product") {
+                    state.filterOptions = Object.keys(PIL_NAMES);
+                } else {
+                    state.filterOptions = await api.get(`/api/filter-options/${type}`);
+                }
                 this.renderFilterOptions();
             } catch (err) {
                 console.error("Failed to load filter options:", err);
@@ -825,24 +829,33 @@
             const pillsEl = $("#filter-values-pills");
             const countEl = $("#filter-values-count");
 
+            const type = $("#filter-type").value;
             const search = state.filterSearchQuery.toLowerCase();
             const filtered = state.filterOptions.filter((opt) => {
-                const displayText = $("#filter-type").value === "office" 
-                    ? `${opt} ${getOfficeDisplay(opt)}`.toLowerCase()
-                    : opt.toLowerCase();
+                let displayText = opt.toLowerCase();
+                if (type === "office") {
+                    displayText = `${opt} ${getOfficeDisplay(opt)}`.toLowerCase();
+                } else if (type === "product") {
+                    displayText = `${opt} ${PIL_NAMES[opt] || ""}`.toLowerCase();
+                }
                 return displayText.includes(search);
             });
 
             if (filtered.length === 0) {
-                optionsEl.innerHTML = state.filterOptions.length === 0
-                    ? `<div class="multi-select-empty">No options available. Messages will populate this list.</div>`
-                    : `<div class="multi-select-empty">No matches found</div>`;
+                optionsEl.innerHTML = type === "product" && state.filterOptions.length > 0
+                    ? `<div class="multi-select-empty">No matches found</div>`
+                    : state.filterOptions.length === 0
+                        ? `<div class="multi-select-empty">No options available. Messages will populate this list.</div>`
+                        : `<div class="multi-select-empty">No matches found</div>`;
             } else {
                 optionsEl.innerHTML = filtered.map((opt) => {
                     const checked = state.selectedValues.includes(opt) ? "checked" : "";
-                    const displayText = $("#filter-type").value === "office" 
-                        ? getOfficeDisplay(opt)
-                        : opt;
+                    let displayText = opt;
+                    if (type === "office") {
+                        displayText = getOfficeDisplay(opt);
+                    } else if (type === "product") {
+                        displayText = `${opt} - ${PIL_NAMES[opt] || ""}`;
+                    }
                     return `
                     <label class="multi-select-option">
                         <input type="checkbox" ${checked} onchange="app.toggleValue('${escapeHtml(opt).replace(/'/g, "\\'")}')">
@@ -855,9 +868,12 @@
                 pillsEl.innerHTML = "";
             } else {
                 pillsEl.innerHTML = state.selectedValues.map((val) => {
-                    const displayText = $("#filter-type").value === "office" 
-                        ? getOfficeDisplay(val)
-                        : val;
+                    let displayText = val;
+                    if (type === "office") {
+                        displayText = getOfficeDisplay(val);
+                    } else if (type === "product") {
+                        displayText = `${val} - ${PIL_NAMES[val] || ""}`;
+                    }
                     return `
                     <span class="multi-select-pill">
                         ${escapeHtml(displayText)}
