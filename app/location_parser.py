@@ -7,11 +7,6 @@ logger = logging.getLogger(__name__)
 
 UGC_CODE_RE = re.compile(r'\b([A-Z]{2}[CZ]\d{3})\b')
 
-UGC_LINE_RE = re.compile(
-    r'^[A-Z]{2}[CZ]\d{3}(?:-[A-Z]{2}[CZ]\d{3})*-\d{6}-',
-    re.MULTILINE,
-)
-
 _COUNTY_RE = re.compile(r'\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)\s+County\b')
 
 _CITY_DISTANCE_RE = re.compile(
@@ -50,22 +45,11 @@ def extract_ugc_codes(product_text: str) -> list[str]:
     seen: list[str] = []
     seen_set: set[str] = set()
 
-    for match in UGC_LINE_RE.finditer(product_text):
-        line = match.group(0)
-        for code_match in UGC_CODE_RE.finditer(line):
-            code = code_match.group(1).upper()
-            if code not in seen_set:
-                seen.append(code)
-                seen_set.add(code)
-
-    if not seen:
-        for code_match in UGC_CODE_RE.finditer(product_text):
-            code = code_match.group(1).upper()
-            if code not in seen_set:
-                seen.append(code)
-                seen_set.add(code)
-            if len(seen) >= 20:
-                break
+    for code_match in UGC_CODE_RE.finditer(product_text):
+        code = code_match.group(1).upper()
+        if code not in seen_set:
+            seen.append(code)
+            seen_set.add(code)
 
     return seen
 
