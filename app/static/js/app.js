@@ -1290,7 +1290,8 @@
         loadMessages();
         connectSSE();
         setInterval(() => app.pollStatus(), 30000);
-        setInterval(() => { sweepExpired(); updateRelativeExpirations(); updateLastTestDisplay(); }, 60000);
+        setInterval(() => { sweepExpired(); updateRelativeExpirations(); }, 60000);
+        setInterval(updateLastTestDisplay, 1000);
         app.pollStatus();
     }
 
