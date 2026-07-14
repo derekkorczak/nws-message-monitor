@@ -121,6 +121,7 @@ class APIPoller:
             severity=severity if severity else None,
             expires_at=expires_at,
             area_desc=area_desc if area_desc else None,
+            event=event if event else None,
         )
 
         stored = await message_processor.process(msg)

@@ -122,6 +122,7 @@ async def list_messages(
             deleted_at=r["deleted_at"],
             expires_at=r["expires_at"],
             read_at=r["read_at"],
+            event=r["event"],
         ))
 
     return MessageList(messages=messages, total=total, page=page, page_size=page_size)
@@ -154,6 +155,7 @@ async def get_message(message_id: UUID):
         deleted_at=row["deleted_at"],
         expires_at=row["expires_at"],
         read_at=row["read_at"],
+        event=row["event"],
     )
 
 

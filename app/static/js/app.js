@@ -502,7 +502,11 @@
             .join("");
     }
 
-    function getHeadline(text, source, pilCode) {
+    function getHeadline(text, source, pilCode, event) {
+        if (event) {
+            return event.substring(0, 120);
+        }
+        
         if (!text) return "No content";
         const lines = text.split("\n").filter((l) => l.trim());
 
@@ -618,7 +622,7 @@
                         <span class="message-source ${escapeHtml(msg.source)}">${escapeHtml(msg.source)}</span>
                         ${msg.area_desc ? `<span class="message-location" title="${escapeHtml(msg.area_desc)}">${escapeHtml(formatLocation(msg.area_desc))}</span>` : ""}
                     </div>
-                    <div class="message-headline">${escapeHtml(getHeadline(msg.product_text, msg.source, msg.pil_code))}</div>
+                    <div class="message-headline">${escapeHtml(getHeadline(msg.product_text, msg.source, msg.pil_code, msg.event))}</div>
                 </div>
                 <div class="message-actions">
                     <button class="btn-icon" onclick="event.stopPropagation(); app.deleteMessage('${msg.id}')" title="Delete">&#10005;</button>
@@ -695,7 +699,7 @@
                     const dot = document.querySelector(`.message-item[data-id="${id}"] .unread-dot`);
                     if (dot) dot.remove();
                 }
-                $("#modal-title").textContent = `${msg.pil_code} - ${getOfficeDisplay(msg.office)}`;
+                $("#modal-title").textContent = msg.event || `${msg.pil_code} - ${getOfficeDisplay(msg.office)}`;
                 const severityHtml = msg.severity
                     ? `<dt>Severity</dt><dd><span class="message-severity severity-${getSeverityClass(msg.severity)}">${escapeHtml(msg.severity)}</span></dd>`
                     : "";

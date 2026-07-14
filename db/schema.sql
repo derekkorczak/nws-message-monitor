@@ -57,3 +57,4 @@ ALTER TABLE filters DROP CONSTRAINT IF EXISTS filters_type_check;
 ALTER TABLE filters ADD CONSTRAINT filters_type_check CHECK (type IN ('product', 'office', 'zone', 'location', 'full_pil', 'pil_zone'));
 
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS area_desc TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS event VARCHAR(200);

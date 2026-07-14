@@ -13,6 +13,7 @@ class MessageCreate(BaseModel):
     severity: str | None = None
     expires_at: datetime | None = None
     area_desc: str | None = None
+    event: str | None = None
 
 
 class Message(BaseModel):
@@ -30,6 +31,7 @@ class Message(BaseModel):
     deleted_at: datetime | None = None
     expires_at: datetime | None = None
     read_at: datetime | None = None
+    event: str | None = None
 
 
 class MessageList(BaseModel):

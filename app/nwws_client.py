@@ -54,6 +54,25 @@ def _parse_vtec_time(ts: str) -> datetime | None:
         return None
 
 
+def _extract_event_type(product_text: str) -> str | None:
+    """Extract the event type (e.g., Heat Advisory, Red Flag Warning) from product text."""
+    if not product_text:
+        return None
+    
+    lines = product_text.split('\n')
+    
+    for line in lines[:15]:
+        line = line.strip()
+        if not line:
+            continue
+        
+        if re.search(r'\b(ADVISORY|WARNING|WATCH|STATEMENT|OUTLOOK)\b', line, re.IGNORECASE):
+            if len(line) < 100 and not line.startswith('...'):
+                return line[:200]
+    
+    return None
+
+
 def _parse_vtec(product_text: str) -> tuple[str | None, datetime | None]:
     """Extract severity and expires_at from the first P-VTEC line in a product."""
     m = _PVTEC.search(product_text)
@@ -257,6 +276,7 @@ class NWWSClient(slixmpp.ClientXMPP):
                 pil_code = m.group(1) if m else awipsid[:3].upper()
 
         severity, expires_at = _parse_vtec(product_text)
+        event = _extract_event_type(product_text)
 
         return MessageCreate(
             source="nwws",
@@ -267,6 +287,7 @@ class NWWSClient(slixmpp.ClientXMPP):
             product_text=product_text,
             severity=severity,
             expires_at=expires_at,
+            event=event,
         )
 
     # Fallback patterns for messages without the nwws-oi extension element.
@@ -346,6 +367,7 @@ class NWWSClient(slixmpp.ClientXMPP):
             office = "NWS"
 
         severity, expires_at = _parse_vtec(body)
+        event = _extract_event_type(body)
 
         return MessageCreate(
             source="nwws",
@@ -356,6 +378,7 @@ class NWWSClient(slixmpp.ClientXMPP):
             product_text=body,
             severity=severity,
             expires_at=expires_at,
+            event=event,
         )
 
     def on_disconnected(self, event):
