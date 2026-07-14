@@ -23,6 +23,7 @@ from app.api_poller import api_poller
 from app.nwws_client import nwws_manager
 from app.retention import retention
 from app.nws_offices import NWS_OFFICES
+from app.test_message_tracker import test_message_tracker
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +37,7 @@ _start_time = time.time()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    await test_message_tracker.load()
     await api_poller.start()
     await nwws_manager.start()
     await retention.start()
@@ -455,4 +457,5 @@ async def get_status():
         total_messages=total,
         deleted_messages=deleted,
         uptime_seconds=time.time() - _start_time,
+        last_test_message_at=test_message_tracker.last,
     )

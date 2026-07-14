@@ -91,3 +91,4 @@ class Status(BaseModel):
     total_messages: int = 0
     deleted_messages: int = 0
     uptime_seconds: float = 0
+    last_test_message_at: datetime | None = None

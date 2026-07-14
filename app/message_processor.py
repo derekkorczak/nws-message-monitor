@@ -5,6 +5,7 @@ from app.database import get_pool
 from app.models import Message, MessageCreate
 from app.filter_engine import filter_engine
 from app.sse import broadcaster
+from app.test_message_tracker import is_test_message, test_message_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,11 @@ class MessageProcessor:
         Process an incoming message: apply filters, check duplicates, store, broadcast.
         Returns True if the message was stored.
         """
+        if is_test_message(msg.wmo_heading):
+            ts = await test_message_tracker.record()
+            await broadcaster.broadcast_status({"last_test_message_at": ts.isoformat()})
+            return False
+
         if not await filter_engine.should_store(msg):
             return False
 

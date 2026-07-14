@@ -74,6 +74,19 @@ body {
 .status-dot.error { background: var(--danger); }
 .status-dot.api-dot.active { background: var(--primary); }
 
+.last-test-indicator {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-left: 0.75rem;
+    padding-left: 0.75rem;
+    border-left: 1px solid var(--border);
+}
+
+.last-test-indicator #last-test-time {
+    color: var(--text);
+    font-weight: 500;
+}
+
 .header-right {
     display: flex;
     align-items: center;

@@ -60,6 +60,49 @@
         });
     }
 
+    function formatRelativeShort(isoStr) {
+        if (!isoStr) return null;
+        const now = Date.now();
+        const target = new Date(isoStr).getTime();
+        const diffMs = target - now;
+        const absMs = Math.abs(diffMs);
+        const seconds = Math.floor(absMs / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        let relative;
+        if (days > 0) relative = `${days}d ${hours % 24}h`;
+        else if (hours > 0) relative = `${hours}h ${minutes % 60}m`;
+        else if (minutes > 0) relative = `${minutes}m ${seconds % 60}s`;
+        else relative = `${seconds}s`;
+
+        return diffMs < 0 ? `${relative} ago` : `in ${relative}`;
+    }
+
+    function renderLastTestMessage(isoStr) {
+        const el = $("#last-test-time");
+        if (!el) return;
+        if (!isoStr) {
+            el.textContent = "never";
+            el.removeAttribute("title");
+            el.dataset.iso = "";
+            return;
+        }
+        const relative = formatRelativeShort(isoStr);
+        el.textContent = relative;
+        el.title = formatTime(isoStr);
+        el.dataset.iso = isoStr;
+    }
+
+    function updateLastTestDisplay() {
+        const el = $("#last-test-time");
+        if (!el) return;
+        const iso = el.dataset.iso;
+        if (!iso) return;
+        renderLastTestMessage(iso);
+    }
+
     function formatRelativeExpiration(isoStr) {
         if (!isoStr) return null;
         const now = Date.now();
@@ -1059,10 +1102,17 @@
         updateStatus(status) {
             const nwwsEl = $("#nwws-status");
             const apiEl = $("#api-status");
-            nwwsEl.className = "status-dot" + (status.nwws_oi === "connected" ? " active" : "");
-            nwwsEl.title = "NWWS-OI: " + status.nwws_oi;
-            apiEl.className = "status-dot api-dot" + (status.api === "connected" ? " active" : "");
-            apiEl.title = "NWS API: " + status.api;
+            if (status.nwws_oi !== undefined) {
+                nwwsEl.className = "status-dot" + (status.nwws_oi === "connected" ? " active" : "");
+                nwwsEl.title = "NWWS-OI: " + status.nwws_oi;
+            }
+            if (status.api !== undefined) {
+                apiEl.className = "status-dot api-dot" + (status.api === "connected" ? " active" : "");
+                apiEl.title = "NWS API: " + status.api;
+            }
+            if (status.last_test_message_at !== undefined) {
+                renderLastTestMessage(status.last_test_message_at);
+            }
         },
 
         async pollStatus() {
@@ -1240,7 +1290,7 @@
         loadMessages();
         connectSSE();
         setInterval(() => app.pollStatus(), 30000);
-        setInterval(() => { sweepExpired(); updateRelativeExpirations(); }, 60000);
+        setInterval(() => { sweepExpired(); updateRelativeExpirations(); updateLastTestDisplay(); }, 60000);
         app.pollStatus();
     }
 
