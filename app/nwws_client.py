@@ -61,7 +61,7 @@ def _extract_event_type(product_text: str) -> str | None:
     
     lines = product_text.split('\n')
     
-    for line in lines[:15]:
+    for line in lines[:30]:
         line = line.strip()
         if not line:
             continue
@@ -69,6 +69,17 @@ def _extract_event_type(product_text: str) -> str | None:
         if re.search(r'\b(ADVISORY|WARNING|WATCH|STATEMENT|OUTLOOK)\b', line, re.IGNORECASE):
             if len(line) < 100 and not line.startswith('...'):
                 return line[:200]
+    
+    for line in lines[:30]:
+        line = line.strip()
+        if line.startswith('...') and re.search(r'\b(ADVISORY|WARNING|WATCH|STATEMENT|OUTLOOK)\b', line, re.IGNORECASE):
+            m = re.match(r'\.\.\.(.+?)\.\.\.', line)
+            if m:
+                content = m.group(1).strip()
+                event_match = re.match(r'^(.+?)\s+IN\s+EFFECT\b', content, re.IGNORECASE)
+                if event_match:
+                    return event_match.group(1).strip()[:200]
+                return content[:200]
     
     return None
 

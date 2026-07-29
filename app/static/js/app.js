@@ -556,9 +556,10 @@
         const ugcPattern = /^[A-Z]{2}[CZ](?:\d{3}[-,]?)+-?$/;
         const vtecPattern = /^\/[A-Z]+\.[A-Z]+\.[A-Z0-9]{3,4}\.[A-Z]{2}\.[A-Z]\.\d{4}\./;
         const bulletinPattern = /^BULLETIN\s*-/i;
+        const genericHeaderPattern = /^(URGENT\s*-\s*WEATHER MESSAGE|BULLETIN\s*-\s*IMMEDIATELY BROADCAST)/i;
 
         function isSkippable(trimmed) {
-            return ugcPattern.test(trimmed) || vtecPattern.test(trimmed) || bulletinPattern.test(trimmed);
+            return ugcPattern.test(trimmed) || vtecPattern.test(trimmed) || bulletinPattern.test(trimmed) || genericHeaderPattern.test(trimmed);
         }
 
         let fallback = null;
